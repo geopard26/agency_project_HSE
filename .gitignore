@@ -1,0 +1,12 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.so
+
+# env files
+.env
+
+# data and model outputs
+*.csv
+models/
+
