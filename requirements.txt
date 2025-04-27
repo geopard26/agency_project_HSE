@@ -1,2 +1,4 @@
 vk_api
 python-dotenv
+scikit-learn
+joblib
