@@ -1,15 +1,15 @@
-import os
 import argparse
 
 import pandas as pd
-from sqlalchemy.exc import IntegrityError
 from dotenv import load_dotenv
+from sqlalchemy.exc import IntegrityError
 
 # Подгрузка .env
 load_dotenv()
 
-from src.db.session import SessionLocal, init_db
 from src.db.models import Profile
+from src.db.session import SessionLocal, init_db
+
 
 def populate_from_csv(csv_path: str, label_col: str, id_col: str = "id"):
     """
@@ -29,9 +29,7 @@ def populate_from_csv(csv_path: str, label_col: str, id_col: str = "id"):
 
         # Формируем JSON-словарь признаков
         features = {
-            col: row[col]
-            for col in df.columns
-            if col not in (id_col, label_col)
+            col: row[col] for col in df.columns if col not in (id_col, label_col)
         }
 
         # Вставка или обновление
@@ -52,23 +50,18 @@ def populate_from_csv(csv_path: str, label_col: str, id_col: str = "id"):
     db.close()
     print("✅ Заполнение базы из CSV завершено.")
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Populate profiles table from CSV"
+    parser = argparse.ArgumentParser(description="Populate profiles table from CSV")
+    parser.add_argument(
+        "--csv", required=True, help="Путь до CSV-файла, например: data.csv"
     )
     parser.add_argument(
-        "--csv", required=True,
-        help="Путь до CSV-файла, например: data.csv"
+        "--label-col", required=True, help="Имя колонки с меткой (0/1 или True/False)"
     )
     parser.add_argument(
-        "--label-col", required=True,
-        help="Имя колонки с меткой (0/1 или True/False)"
-    )
-    parser.add_argument(
-        "--id-col", default="id",
-        help="Имя колонки с user_id (по умолчанию 'id')"
+        "--id-col", default="id", help="Имя колонки с user_id (по умолчанию 'id')"
     )
     args = parser.parse_args()
 
     populate_from_csv(args.csv, args.label_col, args.id_col)
-

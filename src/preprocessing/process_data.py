@@ -1,10 +1,12 @@
-import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 import os
+
+import pandas as pd
+
 
 def load_raw(path="data/raw/data.csv"):
     # читаем с BOM, чтобы кириллица не «ломалась»
     return pd.read_csv(path, encoding="utf-8-sig")
+
 
 def clean_and_feature_engineer(df: pd.DataFrame) -> pd.DataFrame:
     # 1. Заполнить пропуски
@@ -18,13 +20,18 @@ def clean_and_feature_engineer(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = df[col].apply(lambda x: 0 if x == 0 else 1)
 
     # 3. Новый признак index_contacts
-    contact_cols = ["country", "city", "home_town", "mobile_phone",
-                    "home_phone", "relation", "site"]
+    contact_cols = [
+        "country",
+        "city",
+        "home_town",
+        "mobile_phone",
+        "home_phone",
+        "relation",
+        "site",
+    ]
     existing = [c for c in contact_cols if c in df]
     if existing:
-        df["index_contacts"] = (
-            (df[existing] != 0).astype(int).mean(axis=1)
-        )
+        df["index_contacts"] = (df[existing] != 0).astype(int).mean(axis=1)
 
     # 4. Развёртка языков langs → lang_<язык>
     if "langs" in df:
@@ -32,11 +39,12 @@ def clean_and_feature_engineer(df: pd.DataFrame) -> pd.DataFrame:
             df["langs"]
             .dropna()
             .astype(str)
-            .str.strip("[]").str.replace("'", "")
+            .str.strip("[]")
+            .str.replace("'", "")
             .str.split(", ")
         )
         unique_langs = {
-            l for sub in langs_series for l in sub if isinstance(sub, list)
+            lan for sub in langs_series for lan in sub if isinstance(sub, list)
         }
         for lang in unique_langs:
             df[f"lang_{lang}"] = df["langs"].apply(
@@ -50,34 +58,33 @@ def clean_and_feature_engineer(df: pd.DataFrame) -> pd.DataFrame:
         )
 
     # 6. Удаляем ненужные текстовые колонки
-    drop_cols = [
-        "site", "about", "quotes", "inspired_by",
-        "langs", "university_name"
-    ]
+    drop_cols = ["site", "about", "quotes", "inspired_by", "langs", "university_name"]
     for c in drop_cols:
         if c in df:
             df.drop(columns=c, inplace=True)
 
-    drop_cols = [ ... ]
+    drop_cols = [...]
     for c in drop_cols:
         if c in df:
             df.drop(columns=c, inplace=True)
 
     # Вот это вставляем:
-    df = df.select_dtypes(include=['number'])
+    df = df.select_dtypes(include=["number"])
 
     return df
+
 
 def save_processed(df: pd.DataFrame, path="data/processed/data.csv"):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     df.to_csv(path, index=False, encoding="utf-8-sig")
     print(f"Processed data saved to {path}")
 
+
 def run_pipeline():
     raw = load_raw()
     proc = clean_and_feature_engineer(raw)
     save_processed(proc)
 
+
 if __name__ == "__main__":
     run_pipeline()
-

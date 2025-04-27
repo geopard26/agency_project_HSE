@@ -1,4 +1,5 @@
 import os
+
 import joblib
 import pandas as pd
 
@@ -7,6 +8,7 @@ from src.preprocessing.process_data import clean_and_feature_engineer
 # Кэш модели в памяти
 _model = None
 
+
 def load_model(path: str = "models/random_forest.pkl"):
     global _model
     if _model is None:
@@ -14,6 +16,7 @@ def load_model(path: str = "models/random_forest.pkl"):
             raise FileNotFoundError(f"Model file not found: {path}")
         _model = joblib.load(path)
     return _model
+
 
 def predict_one(raw_features: dict) -> float:
     # 1) Оборачиваем в DataFrame
@@ -33,11 +36,13 @@ def predict_one(raw_features: dict) -> float:
     proba = model.predict_proba(df_proc)[0, 1]
     return proba
 
+
 if __name__ == "__main__":
     # Пример: тестовые данные из первой строки processed CSV
-    sample = pd.read_csv("data/processed/data.csv", nrows=1).to_dict(orient="records")[0]
+    sample = pd.read_csv("data/processed/data.csv", nrows=1).to_dict(orient="records")[
+        0
+    ]
     # Из sample нужно убрать ключи id и is_agency,
     # чтобы они не мешали чистке и предсказанию:
     raw = {k: v for k, v in sample.items() if k not in ("id", "is_agency")}
     print("Probability of agency:", predict_one(raw))
-

@@ -1,16 +1,15 @@
-import os, sys
+import os
+import sys
+
 # Добавляем корень проекта в sys.path, чтобы импорты из src работали
-sys.path.append(
-    os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..")
-    )
-)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import streamlit as st
-from src.parser.parser import get_users_info
-from src.models.predict import predict_one
-from src.db.session import init_db, SessionLocal
+
 from src.db.models import Profile
+from src.db.session import SessionLocal, init_db
+from src.models.predict import predict_one
+from src.parser.parser import get_users_info
 from src.tasks.retrain_task import retrain_model
 
 # Инициализируем БД
@@ -53,4 +52,3 @@ if st.button("Предсказать"):
         # Запускаем переобучение в фоне
         retrain_model.delay()
         st.info("Переобучение модели запущено в фоновом режиме.")
-
