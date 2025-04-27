@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install core dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install development dependencies
+        run: |
+          pip install -r requirements-dev.txt
+
+      - name: Lint with black, flake8 and isort
+        run: make lint
+
+      - name: Run tests
+        run: make test
+
+      - name: Build Docker image
+        run: docker build --no-cache -t agency_app_ci .
