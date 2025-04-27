@@ -1,3 +1,11 @@
+import os, sys
+# Добавляем корень проекта в sys.path, чтобы импорты из src работали
+sys.path.append(
+    os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..")
+    )
+)
+
 import streamlit as st
 from src.parser.parser import get_users_info
 from src.models.predict import predict_one

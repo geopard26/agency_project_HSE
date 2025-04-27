@@ -16,18 +16,20 @@ def load_model(path: str = "models/random_forest.pkl"):
     return _model
 
 def predict_one(raw_features: dict) -> float:
-    """
-    Принимает словарь исходных признаков (те же колонки, что в data/raw/data.csv),
-    возвращает вероятность is_agency == 1.
-    """
     # 1) Оборачиваем в DataFrame
     df = pd.DataFrame([raw_features])
 
-    # 2) Применяем ту же логику обработки, что и к большому датасету
+    # 2) Очищаем и генерируем признаки
     df_proc = clean_and_feature_engineer(df)
 
-    # 3) Загружаем модель и предсказываем
+    # 3) Подгружаем модель
     model = load_model()
+
+    # 4) Выравниваем колонки: оставляем только те, что в model.feature_names_in_
+    feature_names = model.feature_names_in_
+    df_proc = df_proc.reindex(columns=feature_names, fill_value=0)
+
+    # 5) Предсказываем вероятность
     proba = model.predict_proba(df_proc)[0, 1]
     return proba
 
