@@ -16,4 +16,3 @@ services:
       - .:/app
     depends_on:
       - redis
-
