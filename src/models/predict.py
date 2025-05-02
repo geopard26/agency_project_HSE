@@ -33,8 +33,11 @@ def predict_one(raw_features: dict) -> float:
     df_proc = df_proc.reindex(columns=feature_names, fill_value=0)
 
     # 5) Предсказываем вероятность
+    THRESHOLD = 0.98  # выбрали по вашим результатам
+
     proba = model.predict_proba(df_proc)[0, 1]
-    return proba
+    label = int(proba >= THRESHOLD)
+    return proba, label
 
 
 if __name__ == "__main__":
