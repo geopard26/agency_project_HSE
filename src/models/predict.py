@@ -5,11 +5,22 @@ import pandas as pd
 
 from src.preprocessing.process_data import clean_and_feature_engineer
 
+# ————————————
+# Константы
+MODEL_PATH = "models/catboost_model.pkl"
+PROCESSED_CSV = "data/processed/data.csv"
+THRESHOLD = 0.754  # precision ≥ 0.80
+# ————————————
+
+# Считаем хедер processed CSV, уберём id и целевой столбец, оставим только фичи
+_processed_cols = pd.read_csv(PROCESSED_CSV, nrows=0).columns.tolist()
+FEATURE_NAMES = [c for c in _processed_cols if c not in ("id", "is_agency")]
+
 # Кэш модели в памяти
 _model = None
 
 
-def load_model(path: str = "models/random_forest.pkl"):
+def load_model(path: str = MODEL_PATH):
     global _model
     if _model is None:
         if not os.path.exists(path):
@@ -18,34 +29,32 @@ def load_model(path: str = "models/random_forest.pkl"):
     return _model
 
 
-def predict_one(raw_features: dict) -> float:
+def predict_one(raw_features: dict) -> tuple[float, int]:
+    """
+    На вход — словарь {feature_name: value, ...} (без 'id' и 'is_agency'),
+    возвращает (proba, label) для класса 1 по порогу THRESHOLD.
+    """
     # 1) Оборачиваем в DataFrame
     df = pd.DataFrame([raw_features])
 
     # 2) Очищаем и генерируем признаки
     df_proc = clean_and_feature_engineer(df)
 
-    # 3) Подгружаем модель
+    # 3) Выравниваем колонки по обученным фичам, добавляем нули, где не хватает
+    df_proc = df_proc.reindex(columns=FEATURE_NAMES, fill_value=0)
+
+    # 4) Загрузка модели и предсказание
     model = load_model()
-
-    # 4) Выравниваем колонки: оставляем только те, что в model.feature_names_in_
-    feature_names = model.feature_names_in_
-    df_proc = df_proc.reindex(columns=feature_names, fill_value=0)
-
-    # 5) Предсказываем вероятность
-    THRESHOLD = 0.98  # выбрали по вашим результатам
-
     proba = model.predict_proba(df_proc)[0, 1]
     label = int(proba >= THRESHOLD)
+
     return proba, label
 
 
 if __name__ == "__main__":
-    # Пример: тестовые данные из первой строки processed CSV
-    sample = pd.read_csv("data/processed/data.csv", nrows=1).to_dict(orient="records")[
-        0
-    ]
-    # Из sample нужно убрать ключи id и is_agency,
-    # чтобы они не мешали чистке и предсказанию:
+    # Пример: возьмём первый готовый sample из processed CSV
+    sample = pd.read_csv(PROCESSED_CSV, nrows=1).to_dict(orient="records")[0]
     raw = {k: v for k, v in sample.items() if k not in ("id", "is_agency")}
-    print("Probability of agency:", predict_one(raw))
+
+    proba, label = predict_one(raw)
+    print(f"Probability of agency: {proba: .4f}, Label: {label}")
