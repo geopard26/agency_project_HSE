@@ -5,3 +5,4 @@ joblib
 sqlalchemy
 pandas
 imbalanced-learn
+skikit-learn>=1.0
