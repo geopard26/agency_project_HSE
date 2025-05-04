@@ -28,9 +28,14 @@ from sklearn.model_selection import (
 )
 
 
-def evaluate_model(model, X_test, y_test, threshold=0.754):
+def evaluate_model(model, X_test, y_test, threshold=0.5):
     """
-    Функция для предсказаний и печати метрик с учётом заданного порога.
+    Оценивает модель на X_test, y_test с учётом заданного порога:
+      - threshold: значение от 0 до 1, при котором proba>=threshold даёт метку 1.
+    Выводит:
+      - ROC-AUC (на вероятностях)
+      - accuracy, precision, recall, f1 (на дискретных предсказаниях)
+      - classification report
     """
     # вместо y_pred = model.predict(X_test):
     proba = model.predict_proba(X_test)[:, 1]
