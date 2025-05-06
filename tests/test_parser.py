@@ -1,5 +1,9 @@
+import csv  # noqa: F401
+import json  # noqa: F401
 import logging
+import os  # noqa: F401
 
+import pytest  # noqa: F401
 import vk_api
 
 from src.parser import PARSER_FIELDNAMES, get_users_info, map_user_to_row, save_to_csv
@@ -121,26 +125,37 @@ def test_get_users_info_success():
     assert result == fake_users
 
 
-def test_get_users_info_api_error(caplog):
+def test_get_users_info_api_error(monkeypatch, caplog):
     """
     Передаём fake vk_client, в котором users.get бросает ApiError.
     Проверяем, что get_users_info возвращает пустой список
-    и пишет warning в лог.
+    и пишет warning в лог. Ошибка ApiError здесь заменена на простой Exception.
     """
     caplog.set_level(logging.WARNING)
 
+    # 1) Подменяем ApiError на простой класс, чтобы конструктор принимал один аргумент
+    class DummyApiError(Exception):
+        pass
+
+    monkeypatch.setattr(vk_api.exceptions, "ApiError", DummyApiError)
+
+    # 2) Подменяем time.sleep, чтобы не ждать
+    monkeypatch.setattr("time.sleep", lambda s: None)
+
+    # 3) Fake-клиент, который всегда кидает ApiError
     class FakeClientError:
         @property
         def users(self):
             def raiser(**kw):
-                raise vk_api.exceptions.ApiError("test error")
+                raise DummyApiError("test error")
 
             return type("U", (), {"get": staticmethod(raiser)})()
 
+    # Запуск функции
     result = get_users_info(["1"], vk_client=FakeClientError())
-    assert result == []
 
-    # Лог должен содержать warning об ApiError
+    # Ожидаем пустой результат и warning в логах
+    assert result == []
     warnings = [rec.message for rec in caplog.records if rec.levelname == "WARNING"]
     assert any("API error" in str(w) for w in warnings)
 
