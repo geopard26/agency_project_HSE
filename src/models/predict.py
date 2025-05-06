@@ -21,34 +21,31 @@ _model = None
 
 
 def load_model(path: str | None = None):
+    """
+    Загружает модель из path или из MODEL_PATH, кеширует в _model.
+    """
     global _model
+    actual = path or MODEL_PATH
     if _model is None:
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Model file not found: {path}")
-        _model = joblib.load(path)
+        if not os.path.exists(actual):
+            raise FileNotFoundError(f"Model file not found: {actual}")
+        _model = joblib.load(actual)
     return _model
 
 
 def predict_one(raw_features: dict) -> tuple[float, int]:
     """
-    На вход — словарь {feature_name: value, ...} (без 'id' и 'is_agency'),
-    возвращает (proba, label) для класса 1 по порогу THRESHOLD.
+    На вход — словарь признаков, возвращает (proba, label) по THRESHOLD.
     """
-    # 1) Оборачиваем в DataFrame
     df = pd.DataFrame([raw_features])
-
-    # 2) Очищаем и генерируем признаки
     df_proc = clean_and_feature_engineer(df)
-
-    # 3) Выравниваем колонки по обученным фичам, добавляем нули, где не хватает
     df_proc = df_proc.reindex(columns=FEATURE_NAMES, fill_value=0)
 
-    # 4) Загрузка модели и предсказание
     model = load_model()
     probs = model.predict_proba(df_proc)
+    # поддерживаем и numpy-матрицу, и список списков
     proba = probs[0][1]
     label = int(proba >= THRESHOLD)
-
     return proba, label
 
 

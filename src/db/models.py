@@ -8,7 +8,6 @@ Base = declarative_base()
 
 class Profile(Base):
     __tablename__ = "profiles"
-
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, unique=True, nullable=False, index=True)
     features = Column(JSON, nullable=False)

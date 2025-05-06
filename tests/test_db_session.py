@@ -10,16 +10,16 @@ def test_init_db_creates_tables(monkeypatch):
     """
     Проверяем, что init_db создаёт таблицы из моделей в памяти.
     """
-    # Подменяем engine и SessionLocal на in-memory
+    # 1) Создаём in-memory движок
     eng = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    # 2) Подменяем module-level engine в session.py
     monkeypatch.setattr(session_mod, "engine", eng)
-    monkeypatch.setattr(session_mod, "SessionLocal", sessionmaker(bind=eng))
 
-    # До вызова нет таблиц
+    # 3) Проверяем, что до init_db таблиц нет
     insp = inspect(eng)
     assert insp.get_table_names() == []
 
-    # Вызываем init_db — должны появиться таблицы из Base.metadata
+    # 4) init_db должна создать таблицу profiles
     session_mod.init_db()
     tables = insp.get_table_names()
     assert "profiles" in tables
