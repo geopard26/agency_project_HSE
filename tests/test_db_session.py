@@ -1,7 +1,7 @@
 import pytest  # noqa: F401
-from sqlalcchemy.pool import StaticPool
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 import src.db.session as session_mod
 from src.db.models import Base  # noqa: F401
