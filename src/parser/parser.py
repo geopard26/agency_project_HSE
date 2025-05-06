@@ -1,115 +1,187 @@
 import csv
+import logging
 import os
 import time
+from typing import Any, Dict, List, Optional
 
 import vk_api
 from dotenv import load_dotenv
 
+# 1) Конфигурация
 load_dotenv()  # подгрузит .env в os.environ
 VK_TOKEN = os.getenv("VK_TOKEN")
 if not VK_TOKEN:
     raise ValueError("VK_TOKEN не задан в .env")
 
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(name)s %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-def get_users_info(user_ids, token=VK_TOKEN):
-    session = vk_api.VkApi(token=token)
-    vk = session.get_api()
+# 2) Константа: поля CSV в порядке вывода
+PARSER_FIELDNAMES: List[str] = [
+    "id",
+    "first_name",
+    "last_name",
+    "bdate",
+    "city",
+    "country",
+    "home_town",
+    "mobile_phone",
+    "home_phone",
+    "university_name",
+    "relation",
+    "personal",
+    "connections",
+    "site",
+    "friends_count",
+    "followers_count",
+    "activities",
+    "interests",
+    "music",
+    "movies",
+    "tv",
+    "books",
+    "games",
+    "about",
+    "quotes",
+    "career",
+    "military",
+    "occupation",
+]
 
-    users_info = []
+
+def get_users_info(
+    user_ids: List[str], vk_client: Optional[Any] = None, token: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Запрашивает у VK API информацию по списку user_ids.
+    Можно передать готовый vk_client (с методом .users.get),
+    или указать token (по умолчанию берётся из VK_TOKEN).
+    При ошибках ApiError делает sleep(1) и пропускает batch.
+    """
+    if vk_client is None:
+        actual_token = token or VK_TOKEN
+        session = vk_api.VkApi(token=actual_token)
+        vk = session.get_api()
+    else:
+        vk = vk_client
+
+    users_info: List[Dict[str, Any]] = []
     batch_size = 100
-    fields = (
-        "bdate,city,country,home_town,contacts,education,site,"
-        "friends_count,followers_count,activities,interests,"
-        "music,movies,tv,books,games,about,quotes,career,military,occupation"
+    fields = ",".join(
+        [
+            "bdate",
+            "city",
+            "country",
+            "home_town",
+            "contacts",
+            "education",
+            "site",
+            "friends_count",
+            "followers_count",
+            "activities",
+            "interests",
+            "music",
+            "movies",
+            "tv",
+            "books",
+            "games",
+            "about",
+            "quotes",
+            "career",
+            "military",
+            "occupation",
+        ]
     )
+
     for i in range(0, len(user_ids), batch_size):
         batch = user_ids[i : i + batch_size]
         try:
             response = vk.users.get(user_ids=",".join(batch), fields=fields)
-            for user in response:
-                # здесь можно обрабатывать поля дополнительно
-                users_info.append(user)
+            users_info.extend(response)
         except vk_api.exceptions.ApiError as e:
-            print(f"API error [{e.code if hasattr(e, 'code') else ''}]: {e}")
+            code = getattr(e, "code", "")
+            logger.warning(f"API error [{code}]: {e}")
             time.sleep(1)
     return users_info
 
 
-def save_to_csv(filename, users_info):
-    fieldnames = [
-        "id",
-        "first_name",
-        "last_name",
-        "bdate",
-        "city",
-        "country",
-        "home_town",
-        "mobile_phone",
-        "home_phone",
-        "university_name",
-        "relation",
-        "personal",
-        "connections",
-        "site",
-        "friends_count",
-        "followers_count",
-        "activities",
-        "interests",
-        "music",
-        "movies",
-        "tv",
-        "books",
-        "games",
-        "about",
-        "quotes",
-        "career",
-        "military",
-        "occupation",
-    ]
+def map_user_to_row(user: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Преобразует один словарь user (как из VK API) в «плоский» словарь
+    для записи в CSV по PARSER_FIELDNAMES.
+    """
+    # city
+    city_val = ""
+    city = user.get("city")
+    if isinstance(city, dict):
+        city_val = city.get("title", "")
+    elif user.get("home_town"):
+        city_val = user.get("home_town", "")
+
+    # country
+    country_val = ""
+    country = user.get("country")
+    if isinstance(country, dict):
+        country_val = country.get("title", "")
+
+    # occupation
+    occ = user.get("occupation")
+    occ_val = occ.get("name", "") if isinstance(occ, dict) else ""
+
+    # По умолчанию берем значение или пустую строку
+    row = {
+        "id": user.get("id", ""),
+        "first_name": user.get("first_name", ""),
+        "last_name": user.get("last_name", ""),
+        "bdate": user.get("bdate", ""),
+        "city": city_val,
+        "country": country_val,
+        "home_town": user.get("home_town", ""),
+        "mobile_phone": user.get("mobile_phone", ""),
+        "home_phone": user.get("home_phone", ""),
+        "university_name": user.get("university_name", ""),
+        "relation": user.get("relation", ""),
+        "personal": user.get("personal", ""),
+        "connections": user.get("connections", ""),
+        "site": user.get("site", ""),
+        "friends_count": user.get("friends_count", ""),
+        "followers_count": user.get("followers_count", ""),
+        "activities": user.get("activities", ""),
+        "interests": user.get("interests", ""),
+        "music": user.get("music", ""),
+        "movies": user.get("movies", ""),
+        "tv": user.get("tv", ""),
+        "books": user.get("books", ""),
+        "games": user.get("games", ""),
+        "about": user.get("about", ""),
+        "quotes": user.get("quotes", ""),
+        "career": user.get("career", ""),
+        "military": user.get("military", ""),
+        "occupation": occ_val,
+    }
+
+    # Оставим ровно те ключи, что в PARSER_FIELDNAMES
+    return {k: row.get(k) for k in PARSER_FIELDNAMES}
+
+
+def save_to_csv(filename: str, users_info: List[Dict[str, Any]]) -> None:
+    """
+    Сохраняет список словарей users_info в CSV file filename.
+    Заголовок записывается только если файл новый или пустой.
+    """
+    os.makedirs(os.path.dirname(filename) or ".", exist_ok=True)
     file_exists = os.path.isfile(filename)
+    needs_header = not file_exists or os.path.getsize(filename) == 0
+
     with open(filename, "a", newline="", encoding="utf-8-sig") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        if not file_exists or os.path.getsize(filename) == 0:
+        writer = csv.DictWriter(csvfile, fieldnames=PARSER_FIELDNAMES)
+        if needs_header:
             writer.writeheader()
         for user in users_info:
-            # Пример маппинга полей; подстройте по вашим данным:
-            city = (
-                user.get("city", {}).get("title")
-                if isinstance(user.get("city"), dict)
-                else user.get("city", user.get("home_town", ""))
-            )
-            writer.writerow(
-                {
-                    "id": user.get("id", ""),
-                    "first_name": user.get("first_name", ""),
-                    "last_name": user.get("last_name", ""),
-                    "bdate": user.get("bdate", ""),
-                    "city": city,
-                    "country": user.get("country", {}).get("title", ""),
-                    "home_town": user.get("home_town", ""),
-                    "mobile_phone": user.get("mobile_phone", ""),
-                    "home_phone": user.get("home_phone", ""),
-                    "university_name": user.get("university_name", ""),
-                    "relation": user.get("relation", ""),
-                    "personal": user.get("personal", ""),
-                    "connections": user.get("connections", ""),
-                    "site": user.get("site", ""),
-                    "friends_count": user.get("friends_count", ""),
-                    "followers_count": user.get("followers_count", ""),
-                    "activities": user.get("activities", ""),
-                    "interests": user.get("interests", ""),
-                    "music": user.get("music", ""),
-                    "movies": user.get("movies", ""),
-                    "tv": user.get("tv", ""),
-                    "books": user.get("books", ""),
-                    "games": user.get("games", ""),
-                    "about": user.get("about", ""),
-                    "quotes": user.get("quotes", ""),
-                    "career": user.get("career", ""),
-                    "military": user.get("military", ""),
-                    "occupation": user.get("occupation", {}).get("name", ""),
-                }
-            )
+            row = map_user_to_row(user)
+            writer.writerow(row)
 
 
 if __name__ == "__main__":
@@ -124,11 +196,13 @@ if __name__ == "__main__":
         help="Список ID через запятую, например: id1,id2,id3",
     )
     parser.add_argument(
-        "--output", default="data.csv", help="Путь до выходного CSV-файла"
+        "--output",
+        default="data.csv",
+        help="Путь до выходного CSV-файла",
     )
     args = parser.parse_args()
 
-    user_ids = args.user_ids.split(",")
-    data = get_users_info(user_ids)
-    save_to_csv(args.output, data)
-    print(f"Данные сохранены в {args.output}")
+    ids = args.user_ids.split(",")
+    users = get_users_info(ids)
+    save_to_csv(args.output, users)
+    logger.info(f"Данные сохранены в {args.output}")
