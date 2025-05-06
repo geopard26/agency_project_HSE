@@ -1,5 +1,5 @@
 import pytest  # noqa: F401
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
 import src.db.session as session_mod
@@ -35,6 +35,6 @@ def test_sessionlocal_returns_working_session(monkeypatch):
 
     sess = session_mod.SessionLocal()
     # Проверка, что на сессии можно выполнить простой SQL
-    result = sess.execute("SELECT 1").scalar()
+    result = sess.execute(text("SELECT 1")).scalar()
     assert result == 1
     sess.close()

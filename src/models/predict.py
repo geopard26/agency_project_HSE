@@ -20,7 +20,7 @@ FEATURE_NAMES = [c for c in _processed_cols if c not in ("id", "is_agency")]
 _model = None
 
 
-def load_model(path: str = MODEL_PATH):
+def load_model(path: str | None = None):
     global _model
     if _model is None:
         if not os.path.exists(path):
