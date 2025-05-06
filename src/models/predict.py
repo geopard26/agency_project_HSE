@@ -45,7 +45,8 @@ def predict_one(raw_features: dict) -> tuple[float, int]:
 
     # 4) Загрузка модели и предсказание
     model = load_model()
-    proba = model.predict_proba(df_proc)[0, 1]
+    probs = model.predict_proba(df_proc)
+    proba = probs[0][1]
     label = int(proba >= THRESHOLD)
 
     return proba, label
