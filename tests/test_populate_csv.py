@@ -62,9 +62,10 @@ def test_populate_from_csv_insert_and_update(monkeypatch, tmp_path):
     df2.to_csv(csv2, index=False)
 
     # Второй прогон — обновление существующих записей
+    sess.close()
     populate_mod.populate_from_csv(str(csv2), label_col="label", id_col="id")
-
-    profiles_updated = sess.query(Profile).order_by(Profile.user_id).all()
+    sess2 = Session()
+    profiles_updated = sess2.query(Profile).order_by(Profile.user_id).all()
     u1, u2 = profiles_updated
     assert u1.label is False and u1.features["f1"] == 100 and u1.features["f2"] == "x"
     assert u2.label is True and u2.features["f1"] == 200 and u2.features["f2"] == "y"
