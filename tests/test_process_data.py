@@ -55,8 +55,8 @@ def test_fill_and_binary_and_index_and_university_and_langs():
     assert out["mobile_phone"].tolist() == [0, 1, 1]
 
     # 3) index_contacts: среднее по ненулевым контактам
-    # row0: country,city,home_town,site = non-zero in 'country','city' → 2/4 = 0.5
-    assert pytest.approx(out.loc[0, "index_contacts"], rel=1e-3) == 0.5
+    # row0: 5 из 7 contact_cols ненулевые → 5/7 ≈ 0.7143
+    assert pytest.approx(out.loc[0, "index_contacts"], rel=1e-3) == 5 / 7
     # проверьте, что столбец создан
     assert "index_contacts" in out.columns
 
@@ -109,10 +109,10 @@ def test_save_processed(tmp_path):
     assert text[0] == "a,b"
     assert len(text) == 1 + 3
 
-    # 2) второй вызов: без дублирования header
+    # 2) второй вызов: файл перезаписывается, снова header + 3 строки
     save_processed(df, path=str(out_file))
     text2 = out_file.read_text(encoding="utf-8-sig").splitlines()
-    assert len(text2) == 1 + 6
+    assert len(text2) == 1 + 3
 
 
 def test_load_raw(tmp_path, monkeypatch):
