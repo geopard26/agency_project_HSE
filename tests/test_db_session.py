@@ -1,4 +1,5 @@
 import pytest  # noqa: F401
+from sqlalcchemy.pool import StaticPool
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 
@@ -11,7 +12,9 @@ def test_init_db_creates_tables(monkeypatch):
     Проверяем, что init_db создаёт таблицы из моделей в памяти.
     """
     # 1) Создаём in-memory движок
-    eng = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    eng = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
     # 2) Подменяем module-level engine в session.py
     monkeypatch.setattr(session_mod, "engine", eng)
 

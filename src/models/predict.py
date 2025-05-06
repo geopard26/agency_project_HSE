@@ -20,16 +20,15 @@ FEATURE_NAMES = [c for c in _processed_cols if c not in ("id", "is_agency")]
 _model = None
 
 
-def load_model(path: str | None = None):
+def load_model():
     """
-    Загружает модель из path или из MODEL_PATH, кеширует в _model.
+    Загружает и кеширует модель из текущей константы MODEL_PATH.
     """
     global _model
-    actual = path or MODEL_PATH
     if _model is None:
-        if not os.path.exists(actual):
-            raise FileNotFoundError(f"Model file not found: {actual}")
-        _model = joblib.load(actual)
+        if not os.path.exists(MODEL_PATH):
+            raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
+        _model = joblib.load(MODEL_PATH)
     return _model
 
 
