@@ -14,7 +14,7 @@ def test_init_db_creates_tables(monkeypatch):
     """
     # 1) Создаём in-memory движок с StaticPool
     eng = create_engine(
-        "sqlite://",
+        "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
