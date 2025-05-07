@@ -1,0 +1,4 @@
+Sphinx>=6.0
+sphinx-rtd-theme      
+sphinx-autobuild      
+sphinxcontrib-mermaid 

@@ -293,17 +293,20 @@ GitHub Actions (файл ```.github/workflows/ci.yml```) автоматичес�
 pip install -r requirements-docs.txt
 ```
 
-*Генерация HTML-доков (Sphinx)*
+### Генерация документации
 
 ```bash
-cd docs
-sphinx-build -b html source build/html
-```
+# установить зависимости
+pip install -r requirements-docs.txt
 
-Открыть результат:
+# обновить API-часть
+sphinx-apidoc -o docs/modules src
 
-```bash
-open docs/build/html/index.html
+# собрать HTML
+make -C docs html
+
+# открыть результат
+open docs/_build/html/index.html
 ```
 
 ## 🤝 Contributing
