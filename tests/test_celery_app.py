@@ -34,11 +34,17 @@ def test_celery_app_configuration(monkeypatch):
 
     # 4) Подменяем LoggingIntegration, чтобы запомнить параметры
     class DummyIntegration:
+        # обязательный атрибут, которым Sentry идентифицирует интеграцию
         identifier = "dummy_integration"
 
         def __init__(self, level, event_level):
             self.level = level
             self.event_level = event_level
+
+        @staticmethod
+        def setup_once():
+            # Sentry вызывает этот метод при регистрации интеграции
+            pass
 
     monkeypatch.setattr("src.tasks.celery_app.LoggingIntegration", DummyIntegration)
 
