@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 import multiprocessing as mp
 
+from src.logging_config import get_logger, setup_logging
+
+setup_logging()  # уровень по умолчанию INFO
+logger = get_logger(__name__)
+
 # Устанавливаем метод старта "fork" для избежания ошибок resource_tracker на macOS
 try:
     mp.set_start_method("fork")
@@ -168,3 +173,4 @@ if __name__ == "__main__":
     model_path = os.path.join("models", "catboost_model.pkl")
     joblib.dump(best_model, model_path)
     print(f"Модель сохранена в {model_path}")
+    logger.info("=== Основные метрики ===")

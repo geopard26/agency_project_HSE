@@ -2,14 +2,20 @@ import os
 
 import pandas as pd
 
+from src.logging_config import get_logger
+
 
 def load_raw(path="data/raw/data.csv"):
     # читаем с BOM, чтобы кириллица не «ломалась»
     return pd.read_csv(path, encoding="utf-8-sig")
 
 
+logger = get_logger(__name__)
+
+
 def clean_and_feature_engineer(df: pd.DataFrame) -> pd.DataFrame:
     # 1. Заполнить пропуски
+    logger.debug("Running clean_and_feature_engineer on %d rows", len(df))
     for col in ["home_phone", "games", "inspired_by"]:
         if col in df:
             df[col] = df[col].fillna(0)

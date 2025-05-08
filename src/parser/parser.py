@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional
 import vk_api
 from dotenv import load_dotenv
 
+from src.logging_config import get_logger  # noqa: F401
+
 # 1) Конфигурация
 load_dotenv()  # подгрузит .env в os.environ
 VK_TOKEN = os.getenv("VK_TOKEN")
@@ -62,6 +64,7 @@ def get_users_info(
     """
     if vk_client is None:
         actual_token = token or VK_TOKEN
+        logger.info("Connecting to VK API")
         session = vk_api.VkApi(token=actual_token)
         vk = session.get_api()
     else:
@@ -102,7 +105,7 @@ def get_users_info(
             users_info.extend(response)
         except vk_api.exceptions.ApiError as e:
             code = getattr(e, "code", "")
-            logger.warning(f"API error [{code}]: {e}")
+            logger.warning("API error [%s]: %s", code, e, exc_info=True)
             time.sleep(1)
     return users_info
 

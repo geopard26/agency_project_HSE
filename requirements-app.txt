@@ -2,3 +2,4 @@
 streamlit
 celery
 redis
+sentry-sdk>=1.0.0
