@@ -1,30 +1,19 @@
 import importlib
-import logging  # noqa: F401
-import os  # noqa: F401
-
-import pytest  # noqa: F401
 
 
 def test_celery_app_configuration(monkeypatch):
-    """
-    Проверяем, что при заданных переменных окружения:
-    - setup_logging() вызывается с LOG_LEVEL
-    - Sentry инициализируется с нужными параметрами
-    - Celery строится с правильным broker/backend
-    - autodiscover_tasks вызывается с ["src.tasks"]
-    """
-    # 1) Подставляем окружение
+    # 1) Задаём окружение
     monkeypatch.setenv("BROKER_URL", "redis://testbroker:1234/1")
     monkeypatch.setenv("RESULT_BACKEND", "rpc://")
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("SENTRY_DSN", "https://example@sentry.io/42")
     monkeypatch.setenv("ENV", "testenv")
     monkeypatch.setenv("SENTRY_TRACES_SAMPLE_RATE", "0.42")
-    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
 
-    # 2) Подменяем load_dotenv, чтобы он ничего не делал
+    # 2) Блокируем load_dotenv, чтобы он не стирал наши переменные
     monkeypatch.setattr("src.tasks.celery_app.load_dotenv", lambda: None)
 
-    # 3) Ловим setup_logging
+    # 3) Мокаем setup_logging в модуле перед reload
     setup_called = {}
 
     def fake_setup_logging(level=None):
@@ -32,9 +21,8 @@ def test_celery_app_configuration(monkeypatch):
 
     monkeypatch.setattr("src.tasks.celery_app.setup_logging", fake_setup_logging)
 
-    # 4) Подменяем LoggingIntegration, чтобы запомнить параметры
+    # 4) Создаём DummyIntegration с нужными атрибутами
     class DummyIntegration:
-        # обязательный атрибут, которым Sentry идентифицирует интеграцию
         identifier = "dummy_integration"
 
         def __init__(self, level, event_level):
@@ -43,12 +31,14 @@ def test_celery_app_configuration(monkeypatch):
 
         @staticmethod
         def setup_once():
-            # Sentry вызывает этот метод при регистрации интеграции
             pass
 
-    monkeypatch.setattr("src.tasks.celery_app.LoggingIntegration", DummyIntegration)
+    # Патчим реальный модуль, откуда будет импортироваться интеграция
+    import sentry_sdk.integrations.logging as spl
 
-    # 5) Подменяем sentry_sdk.init
+    monkeypatch.setattr(spl, "LoggingIntegration", DummyIntegration)
+
+    # 5) Патчим реальный sentry_sdk.init, а не локальную переменную в celery_app
     init_args = {}
 
     def fake_sentry_init(*, dsn, environment, integrations, traces_sample_rate):
@@ -57,12 +47,11 @@ def test_celery_app_configuration(monkeypatch):
         init_args["integrations"] = integrations
         init_args["traces_sample_rate"] = traces_sample_rate
 
-    monkeypatch.setattr(
-        "src.tasks.celery_app.sentry_sdk",
-        type("SS", (), {"init": staticmethod(fake_sentry_init)}),
-    )
+    import sentry_sdk
 
-    # 6) Подменяем Celery, чтобы запоминать создание и autodiscover
+    monkeypatch.setattr(sentry_sdk, "init", fake_sentry_init)
+
+    # 6) Мокаем Celery
     celery_calls = {}
 
     class FakeCelery:
@@ -70,7 +59,6 @@ def test_celery_app_configuration(monkeypatch):
             celery_calls["name"] = name
             celery_calls["broker"] = broker
             celery_calls["backend"] = backend
-            # make conf.broker_url available
             self.conf = type("C", (), {"broker_url": broker})
 
         def autodiscover_tasks(self, args):
@@ -78,20 +66,18 @@ def test_celery_app_configuration(monkeypatch):
 
     monkeypatch.setattr("src.tasks.celery_app.Celery", FakeCelery)
 
-    # 7) Перезагружаем модуль
-    import sentry_sdk.integrations.logging as spl
-
+    # 7) Перезагружаем модуль, чтобы все подмены вступили в силу
     import src.tasks.celery_app as mod
-
-    monkeypatch.setattr(spl, "LoggingIntegration", DummyIntegration)
 
     importlib.reload(mod)
 
-    # 8) Проверяем вызовы
+    # 8) Проверяем, что setup_logging получил нужный уровень
     assert setup_called["level"] == "DEBUG"
 
-    # должно создаться именно поле sentry_logging типа DummyIntegration
+    # 9) Проверяем, что sentry_logging в модуле — наш DummyIntegration
     assert isinstance(mod.sentry_logging, DummyIntegration)
+
+    # 10) Проверяем, что init_args заполнились ожидаемо
     assert init_args == {
         "dsn": "https://example@sentry.io/42",
         "environment": "testenv",
@@ -99,6 +85,7 @@ def test_celery_app_configuration(monkeypatch):
         "traces_sample_rate": 0.42,
     }
 
+    # 11) Проверяем Celery
     assert celery_calls["name"] == "tasks"
     assert celery_calls["broker"] == "redis://testbroker:1234/1"
     assert celery_calls["backend"] == "rpc://"
