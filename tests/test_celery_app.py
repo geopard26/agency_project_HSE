@@ -1,5 +1,7 @@
 import importlib
 
+import celery
+
 
 def test_celery_app_configuration(monkeypatch):
     # 1) Задаём окружение
@@ -51,7 +53,7 @@ def test_celery_app_configuration(monkeypatch):
 
     monkeypatch.setattr(sentry_sdk, "init", fake_sentry_init)
 
-    # 6) Мокаем Celery
+    # 6) Мокаем Celery в пакете celery
     celery_calls = {}
 
     class FakeCelery:
@@ -64,7 +66,7 @@ def test_celery_app_configuration(monkeypatch):
         def autodiscover_tasks(self, args):
             celery_calls["autodiscover"] = args
 
-    monkeypatch.setattr("src.tasks.celery_app.Celery", FakeCelery)
+    monkeypatch.setattr(celery, "Celery", FakeCelery, raising=True)
 
     # 7) Перезагружаем модуль, чтобы все подмены вступили в силу
     import src.tasks.celery_app as mod
