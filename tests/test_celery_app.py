@@ -71,7 +71,11 @@ def test_celery_app_configuration(monkeypatch):
     monkeypatch.setattr("src.tasks.celery_app.Celery", FakeCelery)
 
     # 7) Перезагружаем модуль
+    import sentry_sdk.integrations.logging as spl
+
     import src.tasks.celery_app as mod
+
+    monkeypatch.setattr(spl, "LoggingIntegration", DummyIntegration)
 
     importlib.reload(mod)
 
