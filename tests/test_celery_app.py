@@ -34,6 +34,8 @@ def test_celery_app_configuration(monkeypatch):
 
     # 4) Подменяем LoggingIntegration, чтобы запомнить параметры
     class DummyIntegration:
+        identifier = "dummy_integration"
+
         def __init__(self, level, event_level):
             self.level = level
             self.event_level = event_level
