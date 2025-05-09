@@ -20,29 +20,30 @@ def retrain_model(self, *args, **kwargs):
     выполняет retry() до 3 раз.
     """
     logger.info("=== Запуск задачи retrain_model ===")
+    # 1) Загрузка и предобработка
+    raw_df = proc_mod.load_raw(os.getenv("RAW_DATA_PATH", "data/raw/data.csv"))
+    proc_df = proc_mod.clean_and_feature_engineer(raw_df)
 
+    # 2) Проверяем наличие целевой метки — если нет, сразу retry и выход
+    if "is_agency" not in proc_df.columns:
+        logger.error("В данных отсутствует столбец 'is_agency', повтор через 60 секунд")
+        return self.retry(
+            exc=ValueError("В данных отсутствует столбец 'is_agency'"),
+            countdown=60,
+            max_retries=3,
+        )
+
+    # Всё остальное — в блоке try, чтобы перехватывать только ошибки обучения
     try:
-        raw_df = proc_mod.load_raw(os.getenv("RAW_DATA_PATH", "data/raw/data.csv"))
-        proc_df = proc_mod.clean_and_feature_engineer(raw_df)
-
-        # 2) Проверяем наличие целевой метки — если нет, сразу retry
-        if "is_agency" not in proc_df.columns:
-            logger.error(
-                "В данных отсутствует столбец 'is_agency', повтор через 60 секунд"
-            )
-            return self.retry(
-                exc=ValueError("В данных отсутствует столбец 'is_agency'"),
-                countdown=60,
-                max_retries=3,
-            )
-
+        # 3) Формируем X и y
         X = proc_df.drop(columns=["id", "is_agency"], errors="ignore")
         y = proc_df["is_agency"]
+
         logger.debug(
             "Данные для обучения: %d строк, %d признаков", X.shape[0], X.shape[1]
         )
 
-        # 4) Запускаем обучение
+        # 4) Обучение модели
         train_catboost(
             X,
             y,
