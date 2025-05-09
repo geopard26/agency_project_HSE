@@ -4,10 +4,9 @@ services:
   db:
     image: postgres:15
     container_name: agency_db_dev
-    # подхватывает переменные из .env.dev, в том числе DATABASE_URL
-    env_file:
-      - .env.dev
+    env_file: .env.dev
     environment:
+      # эти переменные нужны Postgres, но дублируются из env_file
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: agency_dev

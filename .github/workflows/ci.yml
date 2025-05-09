@@ -28,6 +28,11 @@ jobs:
       - name: Lint with black, flake8 and isort
         run: make lint
 
+      - name: Load Dev Env
+        run: |
+          echo "DATABASE_URL=${{ secrets.DEV_DATABASE_URL }}" >> $GITHUB_ENV
+          echo "ENV=dev"                >> $GITHUB_ENV
+
       - name: Run tests
         run: make test
 
