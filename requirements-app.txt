@@ -3,3 +3,4 @@ streamlit
 celery
 redis
 sentry-sdk>=1.0.0
+catboost>=1.0.0
