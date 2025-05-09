@@ -59,6 +59,76 @@ def evaluate_model(model, X_test, y_test, threshold=0.5):
         print(f" {name: >10s} : {val: .4f}")
 
 
+def train_catboost(
+    X,
+    y,
+    save_path: str = "models/catboost_model.pkl",
+    param_search: bool = True,
+    random_state: int = 42,
+    n_iter: int = 20,
+) -> CatBoostClassifier:
+    """
+    Тренирует CatBoostClassifier на X, y.
+    Если param_search=True — делает RandomizedSearchCV, иначе просто fit.
+    Сохраняет модель в save_path и возвращает её.
+    """
+    # 1) Сплит для поиска гиперпараметров
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=random_state, stratify=y
+    )
+
+    # 2) Считаем веса классов
+    counts = y_train.value_counts().to_dict()
+    weight_ratio = counts.get(0, 1) / (counts.get(1, 1) or 1)
+    class_weights = [1, weight_ratio]
+
+    # 3) Базовая модель
+    base_model = CatBoostClassifier(
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=random_state,
+        class_weights=class_weights,
+        od_type="Iter",
+        od_wait=50,
+        verbose=False,
+    )
+
+    # 4) Опциональный RandomizedSearchCV
+    if param_search:
+        param_distributions = {
+            "learning_rate": [0.01, 0.03, 0.05, 0.1],
+            "depth": [4, 6, 8],
+            "l2_leaf_reg": [1, 3, 5, 7],
+            "iterations": [200, 500, 1000],
+            "bagging_temperature": [0, 1, 2],
+        }
+        cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=2, random_state=random_state)
+        search = RandomizedSearchCV(
+            estimator=base_model,
+            param_distributions=param_distributions,
+            n_iter=n_iter,
+            scoring="roc_auc",
+            cv=cv,
+            random_state=random_state,
+            n_jobs=1,
+            verbose=0,
+        )
+        logger.info("Start hyperparameter search for CatBoost...")
+        search.fit(X_train, y_train)
+        model = search.best_estimator_
+        logger.info("Best ROC-AUC: %.4f", search.best_score_)
+    else:
+        logger.info("Training CatBoost without hyperparameter search...")
+        model = base_model.fit(X_train, y_train)
+
+    # 5) Сохраняем
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    joblib.dump(model, save_path)
+    logger.info("CatBoost model saved to %s", save_path)
+
+    return model
+
+
 if __name__ == "__main__":
     # 1) Загрузка обработанных данных
     df = pd.read_csv("data/processed/data.csv", encoding="utf-8-sig")
