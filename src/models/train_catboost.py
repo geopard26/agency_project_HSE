@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 import multiprocessing as mp
 
+import mlflow
+import mlflow.sklearn
+
 from src.logging_config import get_logger, setup_logging
 
 setup_logging()  # уровень по умолчанию INFO
 logger = get_logger(__name__)
+
+mlflow.set_experiment("agency_classifier_catboost")
 
 # Устанавливаем метод старта "fork" для избежания ошибок resource_tracker на macOS
 try:
@@ -72,15 +77,24 @@ def train_catboost(
     Если param_search=True — делает RandomizedSearchCV, иначе просто fit.
     Сохраняет модель в save_path и возвращает её.
     """
+    # Запускаем MLflow-run
+    with mlflow.start_run():
+        # Логируем входные параметры
+        mlflow.log_param("param_search", param_search)
+        mlflow.log_param("random_state", random_state)
+        mlflow.log_param("n_iter", n_iter)
     # 1) Сплит для поиска гиперпараметров
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=random_state, stratify=y
     )
+    mlflow.log_param("train_size", len(y_train))
+    mlflow.log_param("test_size", len(y_test))
 
     # 2) Считаем веса классов
     counts = y_train.value_counts().to_dict()
     weight_ratio = counts.get(0, 1) / (counts.get(1, 1) or 1)
     class_weights = [1, weight_ratio]
+    mlflow.log_param("class_weight_ratio", weight_ratio)
 
     # 3) Базовая модель
     base_model = CatBoostClassifier(
@@ -102,6 +116,7 @@ def train_catboost(
             "iterations": [200, 500, 1000],
             "bagging_temperature": [0, 1, 2],
         }
+        mlflow.log_params({k: None for k in param_distributions})
         cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=2, random_state=random_state)
         search = RandomizedSearchCV(
             estimator=base_model,
@@ -115,23 +130,60 @@ def train_catboost(
         )
         logger.info("Start hyperparameter search for CatBoost...")
         search.fit(X_train, y_train)
+        logger.info("Start hyperparameter search for CatBoost...")
+        search.fit(X_train, y_train)
+
         model = search.best_estimator_
         logger.info("Best ROC-AUC: %.4f", search.best_score_)
+        best_auc = search.best_score_
+        best_params = search.best_params_
+        logger.info("Best ROC-AUC: %.4f", best_auc)
+
+        # Логируем результаты поиска
+        mlflow.log_metric("best_cv_roc_auc", best_auc)
+        mlflow.log_params(best_params)
     else:
         logger.info("Training CatBoost without hyperparameter search...")
         model = base_model.fit(X_train, y_train)
+
+    # Оцениваем на тесте и логируем метрики
+    proba = model.predict_proba(X_test)[:, 1]
+    y_pred = (proba >= 0.5).astype(int)
+    auc = roc_auc_score(y_test, proba)
+    acc = accuracy_score(y_test, y_pred)
+    prec = precision_score(y_test, y_pred)
+    rec = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
+    mlflow.log_metrics(
+        {
+            "test_roc_auc": auc,
+            "test_accuracy": acc,
+            "test_precision": prec,
+            "test_recall": rec,
+            "test_f1": f1,
+        }
+    )
 
     # 5) Сохраняем
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     joblib.dump(model, save_path)
     logger.info("CatBoost model saved to %s", save_path)
+    # Логируем модель как артефакт
+    mlflow.log_artifact(save_path, artifact_path="models")
 
     return model
 
 
 if __name__ == "__main__":
     # 1) Загрузка обработанных данных
-    df = pd.read_csv("data/processed/data.csv", encoding="utf-8-sig")
+    proc_path = "data/processed/data.csv"
+    if not os.path.exists(proc_path):
+        raise RuntimeError(
+            f"Processed data not found at {proc_path}. "
+            "Сначала выполните: python -m src.preprocessing.process_data"
+        )
+    df = pd.read_csv(proc_path, encoding="utf-8-sig")
+
     X = df.drop(columns=["id", "is_agency"])
     y = df["is_agency"]
 

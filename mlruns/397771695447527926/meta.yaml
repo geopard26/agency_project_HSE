@@ -1,0 +1,6 @@
+artifact_location: file:///Users/egorovpavel26/Desktop/p/agency_project_HSE/mlruns/397771695447527926
+creation_time: 1746817408515
+experiment_id: '397771695447527926'
+last_update_time: 1746817408515
+lifecycle_stage: active
+name: agency_classifier_catboost
