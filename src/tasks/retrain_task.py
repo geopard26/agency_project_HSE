@@ -3,9 +3,9 @@ import os
 
 from celery import Celery  # noqa: F401
 
+import src.preprocessing.process_data as proc_mod
 from src.logging_config import get_logger
 from src.models.train_catboost import train_catboost
-from src.preprocessing.process_data import clean_and_feature_engineer, load_raw
 from src.tasks.celery_app import celery_app
 
 logger = get_logger(__name__)
@@ -20,8 +20,8 @@ def retrain_model(self, *args, **kwargs):
     logger.info("=== Запуск задачи retrain_model ===")
     try:
         # 1) Загрузка и предобработка
-        raw_df = load_raw(os.getenv("RAW_DATA_PATH", "data/raw/data.csv"))
-        proc_df = clean_and_feature_engineer(raw_df)
+        raw_df = proc_mod.load_raw(os.getenv("RAW_DATA_PATH", "data/raw/data.csv"))
+        proc_df = proc_mod.clean_and_feature_engineer(raw_df)
 
         # 2) Сплит признаков и целей
         if "is_agency" not in proc_df.columns:
