@@ -20,16 +20,22 @@ def retrain_model(self, *args, **kwargs):
     выполняет retry() до 3 раз.
     """
     logger.info("=== Запуск задачи retrain_model ===")
+
     try:
-        # 1) Загрузка и предобработка
         raw_df = proc_mod.load_raw(os.getenv("RAW_DATA_PATH", "data/raw/data.csv"))
         proc_df = proc_mod.clean_and_feature_engineer(raw_df)
 
-        # 2) Проверяем наличие целевой метки
+        # 2) Проверяем наличие целевой метки — если нет, сразу retry
         if "is_agency" not in proc_df.columns:
-            raise ValueError("В данных отсутствует столбец 'is_agency'")
+            logger.error(
+                "В данных отсутствует столбец 'is_agency', повтор через 60 секунд"
+            )
+            return self.retry(
+                exc=ValueError("В данных отсутствует столбец 'is_agency'"),
+                countdown=60,
+                max_retries=3,
+            )
 
-        # 3) Формируем X и y
         X = proc_df.drop(columns=["id", "is_agency"], errors="ignore")
         y = proc_df["is_agency"]
         logger.debug(
@@ -44,10 +50,6 @@ def retrain_model(self, *args, **kwargs):
         )
         logger.info("Retraining completed successfully")
         return {"status": "success"}
-
     except Exception as exc:
-        # Любая ошибка «упадёт» сюда, включая наш ValueError
         logger.exception("Ошибка в retrain_model, будет повтор через 60 секунд")
-        # вызываем retry — DummySelf.retry поднимет RuntimeError("RETRY"),
-        # который ждёт тест
         return self.retry(exc=exc, countdown=60, max_retries=3)
