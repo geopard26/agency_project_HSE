@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 
 @celery_app.task(bind=True, name="src.tasks.retrain_task.retrain_model", acks_late=True)
-def retrain_model(self):
+def retrain_model(self, *args, **kwargs):
     """
     Фоновая задача Celery: перезапускает обучение CatBoost-модели на полном датасете.
     Если обучение падает, автоматически попробует повторить до 3 раз с паузой 60 секунд.
