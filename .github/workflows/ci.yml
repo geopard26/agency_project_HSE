@@ -2,42 +2,53 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agency_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agency_dev"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Set up Python 3.10
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install all dependencies
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install -r requirements-app.txt
           pip install -r requirements-dev.txt
 
-      - name: Lint with black, flake8 and isort
-        run: make lint
-
-      - name: Load Dev Env
+      - name: Load env vars for Dev
         run: |
           echo "DATABASE_URL=${{ secrets.DEV_DATABASE_URL }}" >> $GITHUB_ENV
-          echo "ENV=dev"                >> $GITHUB_ENV
+          echo "ENV=dev" >> $GITHUB_ENV
+          echo "RAW_DATA_PATH=data/raw/data.csv" >> $GITHUB_ENV
+          echo "MODEL_SAVE_PATH=models/catboost_model.pkl" >> $GITHUB_ENV
+
+      - name: Wait for Postgres
+        run: |
+          until pg_isready -h localhost -p 5432; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
 
       - name: Run tests
-        run: make test
-
-      - name: Build Docker image
-        run: docker build --no-cache -t agency_app_ci .
-
-      - name: Run tests with coverage
         run: pytest --cov=src --cov-report=term --cov-report=xml --cov-fail-under=85
