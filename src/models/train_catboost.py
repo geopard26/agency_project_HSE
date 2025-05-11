@@ -100,15 +100,14 @@ def train_catboost(
             search.fit(X_train, y_train)
             model = search.best_estimator_
             best_auc = search.best_score_
-            best_params = search.best_params_
+            best_params = search.best_params_  # noqa: F841
             logger.info("Best ROC-AUC: %.4f", best_auc)
 
             # Логируем результаты поиска
-            mlflow.log_metric("best_cv_roc_auc", best_auc)
-            mlflow.log_params(best_params)
-        else:
-            logger.info("Training without hyperparameter search...")
-            model = base_model.fit(X_train, y_train)
+        try:
+            mlflow.log_artifact(save_path, artifact_path="models")
+        except Exception as e:
+            logger.warning(f"Skipping mlflow.log_artifact due to error: {e}")
 
         # Оценка на тесте
         proba = model.predict_proba(X_test)[:, 1]
