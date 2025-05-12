@@ -49,11 +49,11 @@ jobs:
       - name: Wait for Postgres to be ready
         run: |
           until pg_isready -h db -p 5432 -U postgres; do
-            echo "Waiting for Postgres on db:5432..."
+            echo "Waiting for Postgres on localhost:5432..."
             sleep 2
           done
 
-      - name: Initialize DB schema
+      - name: Initialize database schema
         run: |
           python - <<'PYCODE'
           from src.db.session import init_db
