@@ -8,8 +8,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # 1) Поднимаем PostgreSQL как сервис под именем "db"
     services:
+      # Контейнер Postgres, доступный по hostname "db"
       db:
         image: postgres:15
         env:
@@ -24,49 +24,44 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    # 2) Сразу экспортируем DATABASE_URL в окружение работы, до любого шага
+    # Окружение, видимое во всех шагах
     env:
+      # ДОЛЖНО совпадать с POSTGRES_DB выше
       DATABASE_URL: postgresql://postgres:postgres@db:5432/agency_test
       ENV: dev
       RAW_DATA_PATH: data/raw/data.csv
       MODEL_SAVE_PATH: models/catboost_model.pkl
 
     steps:
-      # 3) Получаем код
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 4) Ставим Python
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
-      # 5) Устанавливаем зависимости
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-app.txt
           pip install -r requirements-dev.txt
 
-      # 6) Ждём, пока Postgres примет соединения
-      - name: Wait for Postgres
+      - name: Wait for Postgres to be ready
         run: |
-          until pg_isready -h localhost -p 5432 -U postgres; do
-            echo "Waiting for Postgres..."
+          until pg_isready -h db -p 5432 -U postgres; do
+            echo "Waiting for Postgres on db:5432..."
             sleep 2
           done
 
-      # 7) Инициализируем схему нашей БД
-      - name: Initialize database schema
+      - name: Initialize DB schema
         run: |
           python - <<'PYCODE'
           from src.db.session import init_db
           init_db()
-          print("✅ Tables created")
+          print("✅ Tables created in agency_test")
           PYCODE
 
-      # 8) Запускаем тесты с покрытием
       - name: Run tests
         run: |
           pytest --maxfail=1 --disable-warnings -q \
