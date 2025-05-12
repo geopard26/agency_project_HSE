@@ -26,7 +26,7 @@ jobs:
 
     # Окружение, видимое во всех шагах
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agency_test
+      DATABASE_URL: postgresql://postgres:postgres@ldb:5432/agency_test
       ENV: dev
       RAW_DATA_PATH: data/raw/data.csv
       MODEL_SAVE_PATH: models/catboost_model.pkl
@@ -46,10 +46,10 @@ jobs:
           pip install -r requirements-app.txt
           pip install -r requirements-dev.txt
 
-      - name: Wait for Postgres to be ready
+      - name: Wait for Postgres
         run: |
           until pg_isready -h db -p 5432 -U postgres; do
-            echo "Waiting for Postgres on localhost:5432..."
+            echo "Waiting for Postgres on db:5432..."
             sleep 2
           done
 
