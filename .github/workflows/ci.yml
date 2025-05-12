@@ -8,7 +8,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # 1) Поднимаем PostgreSQL в качестве сервиса под хостом "db"
+    # 1) Поднимаем PostgreSQL как сервис под именем "db"
     services:
       db:
         image: postgres:15
@@ -24,20 +24,19 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-    # 2) Переменные окружения для всего job-а
+    # 2) Сразу экспортируем DATABASE_URL в окружение работы, до любого шага
     env:
-      # Будет использовано в src/db/session.py
       DATABASE_URL: postgresql://postgres:postgres@db:5432/agency_test
       ENV: dev
       RAW_DATA_PATH: data/raw/data.csv
       MODEL_SAVE_PATH: models/catboost_model.pkl
 
     steps:
-      # 3) Checkout
-      - name: Checkout repository
+      # 3) Получаем код
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      # 4) Устанавливаем Python
+      # 4) Ставим Python
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
@@ -50,15 +49,15 @@ jobs:
           pip install -r requirements-app.txt
           pip install -r requirements-dev.txt
 
-      # 6) Ждём, пока PostgreSQL поднимется
-      - name: Wait for Postgres to be ready
+      # 6) Ждём, пока Postgres примет соединения
+      - name: Wait for Postgres
         run: |
           until pg_isready -h localhost -p 5432 -U postgres; do
             echo "Waiting for Postgres..."
             sleep 2
           done
 
-      # 7) Инициализируем схему (создаём таблицы)
+      # 7) Инициализируем схему нашей БД
       - name: Initialize database schema
         run: |
           python - <<'PYCODE'
@@ -70,4 +69,5 @@ jobs:
       # 8) Запускаем тесты с покрытием
       - name: Run tests
         run: |
-          pytest --maxfail=1 --disable-warnings -q --cov=src --cov-report=term --cov-report=xml --cov-fail-under=85
+          pytest --maxfail=1 --disable-warnings -q \
+            --cov=src --cov-report=term --cov-report=xml --cov-fail-under=85
