@@ -1,12 +1,14 @@
 name: CI
-          
+
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    # 1) Поднимаем PostgreSQL в качестве сервиса под хостом "db"
     services:
       db:
         image: postgres:15
@@ -17,25 +19,55 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres"
+          --health-cmd "pg_isready -U postgres -d agency_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
+    # 2) Переменные окружения для всего job-а
     env:
+      # Будет использовано в src/db/session.py
       DATABASE_URL: postgresql://postgres:postgres@db:5432/agency_test
+      ENV: dev
+      RAW_DATA_PATH: data/raw/data.csv
+      MODEL_SAVE_PATH: models/catboost_model.pkl
 
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Python
+      # 3) Checkout
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 4) Устанавливаем Python
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: 3.10
-      - name: Install deps
+          python-version: "3.10"
+
+      # 5) Устанавливаем зависимости
+      - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r requirements-app.txt
           pip install -r requirements-dev.txt
-      - name: Lint
-        run: make lint
+
+      # 6) Ждём, пока PostgreSQL поднимется
+      - name: Wait for Postgres to be ready
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for Postgres..."
+            sleep 2
+          done
+
+      # 7) Инициализируем схему (создаём таблицы)
+      - name: Initialize database schema
+        run: |
+          python - <<'PYCODE'
+          from src.db.session import init_db
+          init_db()
+          print("✅ Tables created")
+          PYCODE
+
+      # 8) Запускаем тесты с покрытием
       - name: Run tests
-        run: pytest --cov=src --cov-report=term --cov-report=xml --cov-fail-under=85
+        run: |
+          pytest --maxfail=1 --disable-warnings -q --cov=src --cov-report=term --cov-report=xml --cov-fail-under=85
