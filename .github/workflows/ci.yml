@@ -26,8 +26,7 @@ jobs:
 
     # Окружение, видимое во всех шагах
     env:
-      # ДОЛЖНО совпадать с POSTGRES_DB выше
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/agency_test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agency_test
       ENV: dev
       RAW_DATA_PATH: data/raw/data.csv
       MODEL_SAVE_PATH: models/catboost_model.pkl
