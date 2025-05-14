@@ -49,9 +49,8 @@ jobs:
       - name: Wait for Postgres
         run: |
           until pg_isready -h db -p 5432 -U postgres; do
-            echo "Waiting for Postgres on db:5432..."
-            sleep 2
-          done
+            echo "Waiting for Postgres"
+            sleep 15
 
       - name: Initialize database schema
         run: |

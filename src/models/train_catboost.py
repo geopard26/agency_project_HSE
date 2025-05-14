@@ -24,26 +24,27 @@ def train_catboost(
     n_iter: int = 20,
 ) -> CatBoostClassifier:
     """
-    Обучает CatBoost:
-     - если param_search=True, подбирает гиперпараметры
-     через RandomizedSearchCV с n_iter итераций;
-     - иначе просто .fit() базовой модели.
-    Сохраняет обученную модель в save_path и возвращает её.
+    Обучает CatBoostClassifier:
+      - если param_search=True, подбирает гиперпараметры
+      с помощью RandomizedSearchCV (n_iter итераций);
+      - иначе просто fit().
+    Сохраняет модель в save_path и возвращает её.
     """
-    # проверка размеров
+    # 0) Валидация входных данных
     if len(X) != len(y):
         raise ValueError("X and y must have the same length")
 
-    # train/test split
+    # 1) train/test split
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # class weights
+    # 2) class weights
     counts = y_train.value_counts().to_dict()
-    ratio = counts[0] / counts[1] if counts.get(1, 0) else 1.0
+    ratio = counts.get(0, 1) / (counts.get(1, 1) or 1)
     class_weights = [1, ratio]
 
+    # 3) инициализация базовой модели
     base_model = CatBoostClassifier(
         loss_function="Logloss",
         eval_metric="AUC",
@@ -54,6 +55,7 @@ def train_catboost(
         verbose=False,
     )
 
+    # 4) гиперпараметрический поиск (опционально)
     if param_search:
         param_dist = {
             "learning_rate": [0.01, 0.03, 0.05, 0.1],
@@ -79,7 +81,7 @@ def train_catboost(
         base_model.fit(X_train, y_train)
         model = base_model
 
-    # сохраняем
+    # 5) сохраняем модель на диск
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
     joblib.dump(model, save_path)
 
