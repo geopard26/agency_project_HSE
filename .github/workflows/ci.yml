@@ -60,6 +60,10 @@ jobs:
           print("✅ Tables created in agency_test")
           PYCODE
 
+
+      - name: Upgrade DB to latest revision
+        run: alembic upgrade head
+
       - name: Run tests with coverage
         run: |
           pytest --maxfail=1 --disable-warnings -q \

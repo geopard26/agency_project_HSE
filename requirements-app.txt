@@ -6,3 +6,4 @@ sentry-sdk>=1.0.0
 catboost>=1.0.0
 mlflow>=2.0.0
 psycopg2-binary>=2.9
+alembic>=1.12.0

@@ -21,6 +21,6 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     # Импорт моделей, чтобы зарегистрировать их в metadata
-    from .models import Base
+    from .models import Base  # noqa: F401
 
-    Base.metadata.create_all(bind=engine)
+    # Base.metadata.create_all(bind=engine)

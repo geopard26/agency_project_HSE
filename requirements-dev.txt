@@ -5,3 +5,4 @@ flake8
 isort
 pre-commit
 catboost>=1.0.0
+alembic>=1.12.0
