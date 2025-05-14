@@ -9,27 +9,18 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      # Контейнер Postgres, доступный по hostname "db"
       db:
         image: postgres:15
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: agency_test
-        ports:
-          - 5432:5432
+        # Не пробрасываем порты — внутри runner’а сервис доступен по hostname db
         options: >-
           --health-cmd "pg_isready -U postgres -d agency_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
-    # Окружение, видимое во всех шагах
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@ldb:5432/agency_test
-      ENV: dev
-      RAW_DATA_PATH: data/raw/data.csv
-      MODEL_SAVE_PATH: models/catboost_model.pkl
 
     steps:
       - name: Checkout code
@@ -38,7 +29,7 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
@@ -46,12 +37,19 @@ jobs:
           pip install -r requirements-app.txt
           pip install -r requirements-dev.txt
 
-      - name: Wait for Postgres
+      - name: Export environment variables
         run: |
-            echo "Waiting for Postgres"
-            sleep 15
+          echo "DATABASE_URL=postgresql://postgres:postgres@db:5432/agency_test" >> $GITHUB_ENV
+          echo "ENV=dev"                                   >> $GITHUB_ENV
+          echo "RAW_DATA_PATH=data/raw/data.csv"           >> $GITHUB_ENV
+          echo "MODEL_SAVE_PATH=models/catboost_model.pkl" >> $GITHUB_ENV
 
-      - name: Initialize database schema
+      - name: Wait for Postgres to be ready
+        run: |
+          echo "Sleeping 15s to let Postgres start…"  
+          sleep 15
+
+      - name: Initialize DB schema
         run: |
           python - <<'PYCODE'
           from src.db.session import init_db
@@ -59,7 +57,7 @@ jobs:
           print("✅ Tables created in agency_test")
           PYCODE
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
           pytest --maxfail=1 --disable-warnings -q \
             --cov=src --cov-report=term --cov-report=xml --cov-fail-under=85
