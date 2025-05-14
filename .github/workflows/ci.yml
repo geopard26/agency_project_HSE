@@ -15,12 +15,20 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: agency_test
-        # Не пробрасываем порты — внутри runner’а сервис доступен по hostname db
+        ports:
+          - 5432:5432   # публикуем порт из контейнера на localhost
         options: >-
           --health-cmd "pg_isready -U postgres -d agency_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
+    env:
+      # Теперь хост = localhost, поскольку порт 5432 проброшен
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agency_test
+      ENV: dev
+      RAW_DATA_PATH: data/raw/data.csv
+      MODEL_SAVE_PATH: models/catboost_model.pkl
 
     steps:
       - name: Checkout code
@@ -37,17 +45,12 @@ jobs:
           pip install -r requirements-app.txt
           pip install -r requirements-dev.txt
 
-      - name: Export environment variables
+      - name: Wait for Postgres
         run: |
-          echo "DATABASE_URL=postgresql://postgres:postgres@db:5432/agency_test" >> $GITHUB_ENV
-          echo "ENV=dev"                                   >> $GITHUB_ENV
-          echo "RAW_DATA_PATH=data/raw/data.csv"           >> $GITHUB_ENV
-          echo "MODEL_SAVE_PATH=models/catboost_model.pkl" >> $GITHUB_ENV
-
-      - name: Wait for Postgres to be ready
-        run: |
-          echo "Sleeping 15s to let Postgres start…"  
-          sleep 15
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for Postgres on localhost:5432…"
+            sleep 2
+          done
 
       - name: Initialize DB schema
         run: |
