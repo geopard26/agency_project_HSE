@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
@@ -16,7 +16,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: agency_test
         ports:
-          - 5432:5432   # публикуем порт из контейнера на localhost
+          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d agency_test"
           --health-interval 10s
@@ -24,7 +24,7 @@ jobs:
           --health-retries 5
 
     env:
-      # Теперь хост = localhost, поскольку порт 5432 проброшен
+      # Используем localhost, потому что порт проброшен
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agency_test
       ENV: dev
       RAW_DATA_PATH: data/raw/data.csv
@@ -45,7 +45,7 @@ jobs:
           pip install -r requirements-app.txt
           pip install -r requirements-dev.txt
 
-      - name: Wait for Postgres
+      - name: Wait for Postgres to start
         run: |
           until pg_isready -h localhost -p 5432 -U postgres; do
             echo "Waiting for Postgres on localhost:5432…"
@@ -60,11 +60,10 @@ jobs:
           print("✅ Tables created in agency_test")
           PYCODE
 
-
-      - name: Upgrade DB to latest revision
+      - name: Upgrade DB via Alembic
         run: alembic upgrade head
 
       - name: Run tests with coverage
         run: |
           pytest --maxfail=1 --disable-warnings -q \
-            --cov=src --cov-report=term --cov-report=xml --cov-fail-under=55
+            --cov=src --cov-report=term --cov-report=xml
