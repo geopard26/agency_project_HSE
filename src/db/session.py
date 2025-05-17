@@ -29,7 +29,4 @@ def init_db():
     # Импортируем Base и создаём таблицы (нужно для тестов на SQLite)
     from .models import Base  # noqa: F401
 
-    # Для SQLite (обычно в тестах) – создаём через metadata
-    if DATABASE_URL.startswith("sqlite"):
-        Base.metadata.create_all(bind=engine)
-    # Для Postgres – DDL делает Alembic, здесь пропускаем
+    Base.metadata.create_all(bind=engine)
