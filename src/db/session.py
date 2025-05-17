@@ -29,4 +29,5 @@ def init_db():
     # Импортируем Base и создаём таблицы (нужно для тестов на SQLite)
     from .models import Base  # noqa: F401
 
-    Base.metadata.create_all(bind=engine)
+    if engine.dialect.name == "sqlite":
+        Base.metadata.create_all(bind=engine)
