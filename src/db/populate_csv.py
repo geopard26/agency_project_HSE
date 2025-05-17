@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 load_dotenv()
 
 from src.db.models import Profile
-from src.db.session import SessionLocal, init_db
+from src.db.session import SessionLocal, init_db  # noqa: F401
 
 
 def populate_from_csv(csv_path: str, label_col: str, id_col: str = "id"):
@@ -17,12 +17,18 @@ def populate_from_csv(csv_path: str, label_col: str, id_col: str = "id"):
     features хранится как JSON (остальные колонки, кроме id и label).
     """
     # Создаём схему, если ещё не создана
-    init_db()
+    # 1) Создаём схему на том же engine, который используют тесты
+    import src.db.session as session_mod
 
-    # Читаем CSV
+    session_mod.init_db()
+
     df = pd.read_csv(csv_path)
 
-    db = SessionLocal()
+    from .session import SessionLocal as _OrigSession  # noqa: F401
+    from .session import engine  # noqa: F401
+
+    # Читаем CSV
+    db = session_mod.SessionLocal()
     for _, row in df.iterrows():
         user_id = str(row[id_col])
         label = bool(row[label_col])
