@@ -1,0 +1,5 @@
+resources:
+  - db.yaml
+  - redis.yaml
+  - deployment-web.yaml
+  - deployment-worker.yaml

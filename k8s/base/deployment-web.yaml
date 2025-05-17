@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agency-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: agency-web
+  template:
+    metadata:
+      labels:
+        app: agency-web
+    spec:
+      containers:
+        - name: web
+          image: agency_app:prod
+          command: ["streamlit", "run", "app/streamlit_app.py", "--server.port", "8501"]
+          env:
+            - name: DATABASE_URL
+              value: postgresql://postgres:postgres@db:5432/agency
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: sentry-dsn
+                  key: dsn
+            - name: ENV
+              value: prod
+          ports:
+            - containerPort: 8501
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agency-web
+spec:
+  selector:
+    app: agency-web
+  ports:
+    - port: 80
+      targetPort: 8501

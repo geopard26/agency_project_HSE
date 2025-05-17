@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agency-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agency-worker
+  template:
+    metadata:
+      labels:
+        app: agency-worker
+    spec:
+      containers:
+        - name: worker
+          image: agency_app:prod
+          command: ["celery", "-A", "src.tasks.celery_app", "worker", "--loglevel=INFO"]
+          env:
+            - name: DATABASE_URL
+              value: postgresql://postgres:postgres@db:5432/agency
+            - name: BROKER_URL
+              value: redis://redis:6379/0
+            - name: RESULT_BACKEND
+              value: redis://redis:6379/1
+            - name: ENV
+              value: prod

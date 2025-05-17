@@ -1,0 +1,81 @@
+version: "3.8"
+
+services:
+  # 1) Сервис БД
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agency
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  # 2) Веб-приложение (Streamlit или FastAPI)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod
+    command: streamlit run app/streamlit_app.py --server.port 8501
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/agency
+      SENTRY_DSN: "${SENTRY_DSN}"
+      ENV: prod
+      RAW_DATA_PATH: /app/data/raw/data.csv
+      MODEL_SAVE_PATH: /app/models/catboost_model.pkl
+    ports:
+      - "8501:8501"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+      - webnet
+
+  # 3) Фоновый воркер Celery
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod
+    command: celery -A src.tasks.celery_app worker --loglevel=INFO
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/agency
+      BROKER_URL: redis://redis:6379/0
+      RESULT_BACKEND: redis://redis:6379/1
+      ENV: prod
+    depends_on:
+      - db
+      - redis
+    networks:
+      - backend
+
+  # 4) Redis для Celery
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+  # 5) Nginx как обратный прокси
+  nginx:
+    image: nginx:stable-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+    networks:
+      - webnet
+
+volumes:
+  db_data:
+
+networks:
+  backend:
+  webnet:

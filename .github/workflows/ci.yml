@@ -62,7 +62,19 @@ jobs:
 
       - name: Upgrade DB via Alembic
         run: alembic upgrade head
-
+      - name: Check Docker Compose syntax
+        run: docker compose -f docker-compose.prod.yml config
+      - name: Build production image
+        run: |
+          docker build \
+            --file Dockerfile \
+            --target prod \
+            --no-cache \
+            --tag agency_app:prod \
+            .
+      - name: Generate combined K8s manifest
+        run: kubectl kustomize k8s/base > /tmp/all.yaml
+      - name: Validate K8s manifests        run: kubeval /tmp/all.yaml
       - name: Run tests with coverage
         run: |
           pytest --maxfail=1 --disable-warnings -q \
