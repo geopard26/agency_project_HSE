@@ -72,11 +72,24 @@ jobs:
             --no-cache \
             --tag agency_app:prod \
             .
+      - name: Install kubectl
+        run: |
+          curl -sSL "https://storage.googleapis.com/kubernetes-release/release/$( \
+            curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt \
+          )/bin/linux/amd64/kubectl" -o kubectl
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+      - name: Install kubeval
+        run: |
+          curl -sSL \
+            https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz \
+            | tar -xz
+          sudo mv kubeval /usr/local/bin/
       - name: Generate combined K8s manifest
         run: kubectl kustomize k8s/base > /tmp/all.yaml
+
       - name: Validate K8s manifests
         run: kubeval /tmp/all.yaml
       - name: Run tests with coverage
-        run: |
-          pytest --maxfail=1 --disable-warnings -q \
+        run: |          pytest --maxfail=1 --disable-warnings -q \
             --cov=src --cov-report=term --cov-report=xml
