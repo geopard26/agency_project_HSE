@@ -74,7 +74,8 @@ jobs:
             .
       - name: Generate combined K8s manifest
         run: kubectl kustomize k8s/base > /tmp/all.yaml
-      - name: Validate K8s manifests        run: kubeval /tmp/all.yaml
+      - name: Validate K8s manifests
+        run: kubeval /tmp/all.yaml
       - name: Run tests with coverage
         run: |
           pytest --maxfail=1 --disable-warnings -q \
