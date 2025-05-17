@@ -1,24 +1,37 @@
-# Use official Python slim image
-FROM python:3.10-slim
+# ─── Stage 1: Builder ─────────────────────────────────────────────────────────
 
-# Prevent Python from buffering stdout/stderr
+FROM python:3.10-slim AS builder
+
+# чтобы логи сразу писались в stdout
 ENV PYTHONUNBUFFERED=1
 
-# Set working directory
 WORKDIR /app
 
-# Copy dependency files
+# Копируем только requirements, чтобы агрессивно закешировать pip install
 COPY requirements.txt requirements-app.txt ./
 
-# Install dependencies
+# Устанавливаем зависимости
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt -r requirements-app.txt
+    pip install --no-cache-dir \
+      -r requirements.txt \
+      -r requirements-app.txt
 
-# Copy the entire project into the container
+# ─── Stage 2: Production ───────────────────────────────────────────────────────
+
+FROM python:3.10-slim AS prod
+
+ENV PYTHONUNBUFFERED=1
+WORKDIR /app
+
+# Копируем уже установленные зависимости из билдера
+# путь может отличаться, проверьте, где pip складывает пакеты в вашем образе:
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+
+# Копируем весь код приложения
 COPY . .
 
-# Expose Streamlit port
+# Открываем порт Streamlit
 EXPOSE 8501
 
-# Default command to run the Streamlit app
+# Команда по-умолчанию — запуск Streamlit
 CMD ["streamlit", "run", "app/streamlit_app.py", "--server.port=8501", "--server.headless=true"]
