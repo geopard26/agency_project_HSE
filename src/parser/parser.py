@@ -56,12 +56,6 @@ PARSER_FIELDNAMES: List[str] = [
 def get_users_info(
     user_ids: List[str], vk_client: Optional[Any] = None, token: Optional[str] = None
 ) -> List[Dict[str, Any]]:
-    """
-    Запрашивает у VK API информацию по списку user_ids.
-    Можно передать готовый vk_client (с методом .users.get),
-    или указать token (по умолчанию берётся из VK_TOKEN).
-    При ошибках ApiError делает sleep(1) и пропускает batch.
-    """
     if vk_client is None:
         actual_token = token or VK_TOKEN
         logger.info("Connecting to VK API")
@@ -71,7 +65,6 @@ def get_users_info(
         vk = vk_client
 
     users_info: List[Dict[str, Any]] = []
-    batch_size = 100
     fields = ",".join(
         [
             "bdate",
@@ -98,15 +91,30 @@ def get_users_info(
         ]
     )
 
-    for i in range(0, len(user_ids), batch_size):
-        batch = user_ids[i : i + batch_size]
+    for uid in user_ids:
         try:
-            response = vk.users.get(user_ids=",".join(batch), fields=fields)
-            users_info.extend(response)
+            # Запрашиваем один user_id за раз
+            response = vk.users.get(user_ids=uid, fields=fields)
+            # VK API возвращает список: [] или [{...}]
+            # VK всегда возвращает список: либо [{}], либо [{'deactivated':'deleted'}]
+            if response and isinstance(response, list):
+                user = response[0]
+                # 1) если аккаунт удалён/забанен, придёт поле 'deactivated'
+                if user.get("deactivated") is not None:
+                    users_info.append({"id": uid, "__error": True})
+                # 2) если нет нормального поля id или first_name — тоже считаем ошибкой
+                elif not user.get("id") or not user.get("first_name"):
+                    users_info.append({"id": uid, "__error": True})
+                else:
+                    # всё ок
+                    users_info.append(user)
+            else:
+                users_info.append({"id": uid, "__error": True})
         except vk_api.exceptions.ApiError as e:
-            code = getattr(e, "code", "")
-            logger.warning("API error [%s]: %s", code, e, exc_info=True)
+            logger.warning("Error fetching %s: %s", uid, e, exc_info=True)
+            users_info.append({"id": uid, "__error": True})
             time.sleep(1)
+
     return users_info
 
 

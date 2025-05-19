@@ -1,0 +1,7 @@
+[theme]
+base="light"  # или "dark" по умолчанию
+primaryColor="#27ae60"
+backgroundColor="#f0f2f6"
+secondaryBackgroundColor="#e0e0e0"
+textColor="#262730"
+font="sans serif"
