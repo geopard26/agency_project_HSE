@@ -1,8 +1,7 @@
-import joblib  # pip install joblib
+import joblib
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
-    classification_report,
     f1_score,
     precision_score,
     recall_score,
@@ -10,45 +9,43 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 
+from src.models.predict import FEATURE_NAMES, THRESHOLD  # порог 0.754
+from src.preprocessing.process_data import clean_and_feature_engineer
 
-def evaluate_model(model, X_test, y_test):
-    """
-    Функция для предсказаний и печати метрик.
-    """
-    y_pred = model.predict(X_test)
-    # у GBC тоже есть predict_proba
-    y_proba = model.predict_proba(X_test)[:, 1]
 
+def main():
+    # 1) Загрузка и разделение
+    df = pd.read_csv("data/processed/data.csv", encoding="utf-8-sig")
+    X = df.drop(columns=["id", "is_agency"])
+    y = df["is_agency"]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+
+    # 2) Предобработка (на всякий случай)
+    X_test = clean_and_feature_engineer(X_test.copy())
+    X_test = X_test.reindex(columns=FEATURE_NAMES, fill_value=0)
+
+    # 3) Загрузка модели
+    model = joblib.load("models/catboost_model.pkl")
+
+    # 4) Предсказания
+    proba = model.predict_proba(X_test)[:, 1]
+    y_pred = (proba >= THRESHOLD).astype(int)
+
+    # 5) Метрики
     metrics = {
         "accuracy": accuracy_score(y_test, y_pred),
-        "roc_auc": roc_auc_score(y_test, y_proba),
+        "roc_auc": roc_auc_score(y_test, proba),
         "precision": precision_score(y_test, y_pred),
         "recall": recall_score(y_test, y_pred),
         "f1_score": f1_score(y_test, y_pred),
     }
 
-    print("=== Основные метрики ===")
+    print("=== Основные метрики для CatBoost-модели ===")
     for name, val in metrics.items():
         print(f" {name: >10s} : {val: .4f}")
 
-    print("\n=== Classification Report ===")
-    print(classification_report(y_test, y_pred))
-
 
 if __name__ == "__main__":
-    # 1) Загрузка данных
-    df = pd.read_csv("data/processed/data.csv")
-
-    # 2) Сплит признаков и цели
-    X = df.drop(columns=["id", "is_agency"])
-    y = df["is_agency"]
-
-    # 3) Train/Test split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
-
-    model = joblib.load("models/hgb_model.pkl'")
-
-    # 5–7) Оценка
-    evaluate_model(model, X_test, y_test)
+    main()

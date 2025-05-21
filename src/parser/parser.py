@@ -11,14 +11,15 @@ from src.logging_config import get_logger  # noqa: F401
 
 # 1) Конфигурация
 load_dotenv()  # подгрузит .env в os.environ
+logger = logging.getLogger(__name__)
 VK_TOKEN = os.getenv("VK_TOKEN")
-if not VK_TOKEN:
-    raise ValueError("VK_TOKEN не задан в .env")
+# if not VK_TOKEN:
+#     raise ValueError("VK_TOKEN не задан в .env")
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s", level=logging.INFO
 )
-logger = logging.getLogger(__name__)
+
 
 # 2) Константа: поля CSV в порядке вывода
 PARSER_FIELDNAMES: List[str] = [
@@ -56,9 +57,12 @@ PARSER_FIELDNAMES: List[str] = [
 def get_users_info(
     user_ids: List[str], vk_client: Optional[Any] = None, token: Optional[str] = None
 ) -> List[Dict[str, Any]]:
+    actual_token = token or VK_TOKEN
+    if vk_client is None and not actual_token:
+        raise ValueError("VK_TOKEN не задан в .env и не передан параметр token")
+    # 1) инициализация vk-клиента (либо используем мок из тестов)
     if vk_client is None:
-        actual_token = token or VK_TOKEN
-        logger.info("Connecting to VK API")
+        logger.info("Connecting to VK API with token %s…", actual_token)
         session = vk_api.VkApi(token=actual_token)
         vk = session.get_api()
     else:
