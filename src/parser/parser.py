@@ -1,28 +1,18 @@
 import csv
-import logging
+import logging  # noqa: F401
 import os
 import time
 from typing import Any, Dict, List, Optional
 
 import vk_api
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: F401
 
 from src.logging_config import get_logger  # noqa: F401
 
 # 1) Конфигурация
-load_dotenv()  # подгрузит .env в os.environ
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 VK_TOKEN = os.getenv("VK_TOKEN")
-# if not VK_TOKEN:
-#     raise ValueError("VK_TOKEN не задан в .env")
-
-logging.basicConfig(
-    format="%(asctime)s %(levelname)s %(name)s %(message)s", level=logging.INFO
-)
-
-
-# 2) Константа: поля CSV в порядке вывода
-PARSER_FIELDNAMES: List[str] = [
+PARSER_FIELDNAMES = [
     "id",
     "first_name",
     "last_name",
@@ -55,67 +45,56 @@ PARSER_FIELDNAMES: List[str] = [
 
 
 def get_users_info(
-    user_ids: List[str], vk_client: Optional[Any] = None, token: Optional[str] = None
+    user_ids: List[str],
+    vk_client: Optional[Any] = None,
+    token: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    actual_token = token or VK_TOKEN
-    if vk_client is None and not actual_token:
-        raise ValueError("VK_TOKEN не задан в .env и не передан параметр token")
-    # 1) инициализация vk-клиента (либо используем мок из тестов)
+    """
+    Забирает профили из VK API (или из переданного vk_client) и
+    возвращает их в виде списка словарей, содержащих только поля из PARSER_FIELDNAMES.
+    В случае падения маппинга на каком-то профиле кладёт __error=True.
+    """
+    # 1) Инициализируем API-клиент
     if vk_client is None:
-        logger.info("Connecting to VK API with token %s…", actual_token)
+        actual_token = token or VK_TOKEN
+        logger.info("Connecting to VK API with token %s...", actual_token[:10] + "…")
         session = vk_api.VkApi(token=actual_token)
         vk = session.get_api()
     else:
         vk = vk_client
 
     users_info: List[Dict[str, Any]] = []
-    fields = ",".join(
-        [
-            "bdate",
-            "city",
-            "country",
-            "home_town",
-            "contacts",
-            "education",
-            "site",
-            "friends_count",
-            "followers_count",
-            "activities",
-            "interests",
-            "music",
-            "movies",
-            "tv",
-            "books",
-            "games",
-            "about",
-            "quotes",
-            "career",
-            "military",
-            "occupation",
-        ]
+    batch_size = 100
+    fields = (
+        "bdate,city,country,home_town,contacts,education,site,"
+        "friends_count,followers_count,activities,interests,"
+        "music,movies,tv,books,games,about,quotes,career,military,occupation"
     )
 
-    for uid in user_ids:
+    # 2) Делаем батчевые запросы
+    for i in range(0, len(user_ids), batch_size):
+        batch = user_ids[i : i + batch_size]
         try:
-            response = vk.users.get(user_ids=uid, fields=fields)
-            # ожидаем список с одним элементом
-            if isinstance(response, list) and response:
-                user = response[0]
-                # если аккаунт удалён/деактивирован
-                if user.get("deactivated") is not None:
-                    users_info.append({"id": uid, "__error": True})
-                # если есть корректный id — возвращаем его
-                elif "id" in user:
-                    users_info.append({"id": user["id"]})
-                else:
-                    users_info.append({"id": uid, "__error": True})
-            else:
-                # нет ответа или не список
-                users_info.append({"id": uid, "__error": True})
+            response = vk.users.get(user_ids=",".join(batch), fields=fields)
         except vk_api.exceptions.ApiError as e:
-            logger.warning("Error fetching %s: %s", uid, e, exc_info=True)
-            users_info.append({"id": uid, "__error": True})
+            logger.error("API error [%s]: %s", getattr(e, "code", ""), e)
             time.sleep(1)
+            continue
+
+        # 3) Проходим по каждому юзеру из ответа
+        for user in response:
+            try:
+                # приводим id к int, если строка
+                raw_id = user.get("id", user.get("user_id"))
+                user["id"] = int(raw_id)
+                # маппим только нужные поля
+                row = map_user_to_row(user)
+            except Exception:
+                row = {
+                    "id": int(user.get("id")) if user.get("id") is not None else None,
+                    "__error": True,
+                }
+            users_info.append(row)
 
     return users_info
 
