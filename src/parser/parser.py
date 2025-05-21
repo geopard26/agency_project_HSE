@@ -97,22 +97,20 @@ def get_users_info(
 
     for uid in user_ids:
         try:
-            # Запрашиваем один user_id за раз
             response = vk.users.get(user_ids=uid, fields=fields)
-            # VK API возвращает список: [] или [{...}]
-            # VK всегда возвращает список: либо [{}], либо [{'deactivated':'deleted'}]
-            if response and isinstance(response, list):
+            # ожидаем список с одним элементом
+            if isinstance(response, list) and response:
                 user = response[0]
-                # 1) если аккаунт удалён/забанен, придёт поле 'deactivated'
+                # если аккаунт удалён/деактивирован
                 if user.get("deactivated") is not None:
                     users_info.append({"id": uid, "__error": True})
-                # 2) если нет нормального поля id или first_name — тоже считаем ошибкой
-                elif not user.get("id") or not user.get("first_name"):
-                    users_info.append({"id": uid, "__error": True})
+                # если есть корректный id — возвращаем его
+                elif "id" in user:
+                    users_info.append({"id": user["id"]})
                 else:
-                    # всё ок
-                    users_info.append(user)
+                    users_info.append({"id": uid, "__error": True})
             else:
+                # нет ответа или не список
                 users_info.append({"id": uid, "__error": True})
         except vk_api.exceptions.ApiError as e:
             logger.warning("Error fetching %s: %s", uid, e, exc_info=True)
