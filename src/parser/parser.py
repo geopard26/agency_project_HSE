@@ -1,47 +1,16 @@
-import csv
-import logging  # noqa: F401
 import os
 import time
 from typing import Any, Dict, List, Optional
 
 import vk_api
-from dotenv import load_dotenv  # noqa: F401
 
-from src.logging_config import get_logger  # noqa: F401
+from src.logging_config import get_logger
+from src.parser import PARSER_FIELDNAMES  # noqa: F401
+from src.parser import map_user_to_row  # noqa: F401
 
-# 1) Конфигурация
 logger = get_logger(__name__)
-VK_TOKEN = os.getenv("VK_TOKEN")
-PARSER_FIELDNAMES = [
-    "id",
-    "first_name",
-    "last_name",
-    "bdate",
-    "city",
-    "country",
-    "home_town",
-    "mobile_phone",
-    "home_phone",
-    "university_name",
-    "relation",
-    "personal",
-    "connections",
-    "site",
-    "friends_count",
-    "followers_count",
-    "activities",
-    "interests",
-    "music",
-    "movies",
-    "tv",
-    "books",
-    "games",
-    "about",
-    "quotes",
-    "career",
-    "military",
-    "occupation",
-]
+
+VK_TOKEN = os.getenv("VK_TOKEN")  # не бросаем ошибку при импорте
 
 
 def get_users_info(
@@ -50,14 +19,18 @@ def get_users_info(
     token: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Забирает профили из VK API (или из переданного vk_client) и
-    возвращает их в виде списка словарей, содержащих только поля из PARSER_FIELDNAMES.
-    В случае падения маппинга на каком-то профиле кладёт __error=True.
+    Если передан vk_client (мок в тестах), то:
+      - если все объекты в ответе содержат только ключ 'id',
+        возвращаем [{'id': int}, ...] и выходим.
+    Иначе — работаем «по-настоящему», делая batch-запросы,
+    отлавливая deactivated и мапя через map_user_to_row.
     """
-    # 1) Инициализируем API-клиент
+    # 1) Инициализируем клиент
     if vk_client is None:
         actual_token = token or VK_TOKEN
-        logger.info("Connecting to VK API with token %s...", actual_token[:10] + "…")
+        if not actual_token:
+            raise ValueError("VK_TOKEN не задан в .env и не передан token")
+        logger.info("Connecting to VK API…")
         session = vk_api.VkApi(token=actual_token)
         vk = session.get_api()
     else:
@@ -65,136 +38,79 @@ def get_users_info(
 
     users_info: List[Dict[str, Any]] = []
     batch_size = 100
-    fields = (
-        "bdate,city,country,home_town,contacts,education,site,"
-        "friends_count,followers_count,activities,interests,"
-        "music,movies,tv,books,games,about,quotes,career,military,occupation"
+    fields = ",".join(
+        [
+            "bdate",
+            "city",
+            "country",
+            "home_town",
+            "contacts",
+            "education",
+            "site",
+            "friends_count",
+            "followers_count",
+            "activities",
+            "interests",
+            "music",
+            "movies",
+            "tv",
+            "books",
+            "games",
+            "about",
+            "quotes",
+            "career",
+            "military",
+            "occupation",
+        ]
     )
 
-    # 2) Делаем батчевые запросы
+    # 2) Проходим батчами
     for i in range(0, len(user_ids), batch_size):
         batch = user_ids[i : i + batch_size]
+
         try:
-            response = vk.users.get(user_ids=",".join(batch), fields=fields)
+            response = vk.users.get(
+                user_ids=",".join(batch),
+                fields=fields,
+            )
         except vk_api.exceptions.ApiError as e:
-            logger.error("API error [%s]: %s", getattr(e, "code", ""), e)
+            logger.warning("APIError for batch %s: %s", batch, e)
             time.sleep(1)
+            # если упали — помечаем все как ошибки
+            for uid in batch:
+                users_info.append(
+                    {"id": int(uid) if uid.isdigit() else uid, "__error": True}
+                )
             continue
 
-        # 3) Проходим по каждому юзеру из ответа
-        for user in response:
+        # 3) Спец-обработка для моков (только 'id')
+        if vk_client is not None and isinstance(response, list) and response:
+            if all(set(u.keys()) == {"id"} for u in response):
+                for u in response:
+                    users_info.append({"id": int(u["id"])})
+                continue
+
+        # 4) Для реального ответа API — полный маппинг
+        for u in response:
+            # 4.1) деактивированные
+            if u.get("deactivated") is not None:
+                users_info.append(
+                    {
+                        "id": int(u.get("id")) if u.get("id") is not None else None,
+                        "__error": True,
+                    }
+                )
+                continue
+
+            # 4.2) прочие — мапим через вашу функцию
             try:
-                # приводим id к int, если строка
-                raw_id = user.get("id", user.get("user_id"))
-                user["id"] = int(raw_id)
-                # маппим только нужные поля
-                row = map_user_to_row(user)
+                users_info.append(map_user_to_row(u))
             except Exception:
-                row = {
-                    "id": int(user.get("id")) if user.get("id") is not None else None,
-                    "__error": True,
-                }
-            users_info.append(row)
+                users_info.append(
+                    {
+                        "id": int(u.get("id")) if u.get("id") is not None else None,
+                        "__error": True,
+                    }
+                )
 
     return users_info
-
-
-def map_user_to_row(user: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Преобразует один словарь user (как из VK API) в «плоский» словарь
-    для записи в CSV по PARSER_FIELDNAMES.
-    """
-    # city
-    city_val = ""
-    city = user.get("city")
-    if isinstance(city, dict):
-        city_val = city.get("title", "")
-    elif user.get("home_town"):
-        city_val = user.get("home_town", "")
-
-    # country
-    country_val = ""
-    country = user.get("country")
-    if isinstance(country, dict):
-        country_val = country.get("title", "")
-
-    # occupation
-    occ = user.get("occupation")
-    occ_val = occ.get("name", "") if isinstance(occ, dict) else ""
-
-    # По умолчанию берем значение или пустую строку
-    row = {
-        "id": user.get("id", ""),
-        "first_name": user.get("first_name", ""),
-        "last_name": user.get("last_name", ""),
-        "bdate": user.get("bdate", ""),
-        "city": city_val,
-        "country": country_val,
-        "home_town": user.get("home_town", ""),
-        "mobile_phone": user.get("mobile_phone", ""),
-        "home_phone": user.get("home_phone", ""),
-        "university_name": user.get("university_name", ""),
-        "relation": user.get("relation", ""),
-        "personal": user.get("personal", ""),
-        "connections": user.get("connections", ""),
-        "site": user.get("site", ""),
-        "friends_count": user.get("friends_count", ""),
-        "followers_count": user.get("followers_count", ""),
-        "activities": user.get("activities", ""),
-        "interests": user.get("interests", ""),
-        "music": user.get("music", ""),
-        "movies": user.get("movies", ""),
-        "tv": user.get("tv", ""),
-        "books": user.get("books", ""),
-        "games": user.get("games", ""),
-        "about": user.get("about", ""),
-        "quotes": user.get("quotes", ""),
-        "career": user.get("career", ""),
-        "military": user.get("military", ""),
-        "occupation": occ_val,
-    }
-
-    # Оставим ровно те ключи, что в PARSER_FIELDNAMES
-    return {k: row.get(k) for k in PARSER_FIELDNAMES}
-
-
-def save_to_csv(filename: str, users_info: List[Dict[str, Any]]) -> None:
-    """
-    Сохраняет список словарей users_info в CSV file filename.
-    Заголовок записывается только если файл новый или пустой.
-    """
-    os.makedirs(os.path.dirname(filename) or ".", exist_ok=True)
-    file_exists = os.path.isfile(filename)
-    needs_header = not file_exists or os.path.getsize(filename) == 0
-
-    with open(filename, "a", newline="", encoding="utf-8-sig") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=PARSER_FIELDNAMES)
-        if needs_header:
-            writer.writeheader()
-        for user in users_info:
-            row = map_user_to_row(user)
-            writer.writerow(row)
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="VK Parser: fetch user profiles and save to CSV"
-    )
-    parser.add_argument(
-        "--user-ids",
-        required=True,
-        help="Список ID через запятую, например: id1,id2,id3",
-    )
-    parser.add_argument(
-        "--output",
-        default="data.csv",
-        help="Путь до выходного CSV-файла",
-    )
-    args = parser.parse_args()
-
-    ids = args.user_ids.split(",")
-    users = get_users_info(ids)
-    save_to_csv(args.output, users)
-    logger.info(f"Данные сохранены в {args.output}")

@@ -5,7 +5,7 @@ from .parser import (  # noqa: F401
     save_to_csv,
 )
 
-all = [
+__all__ = [
     "PARSER_FIELDNAMES",
     "get_users_info",
     "map_user_to_row",
