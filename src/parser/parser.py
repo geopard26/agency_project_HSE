@@ -1,3 +1,4 @@
+import csv
 import os
 import time
 from typing import Any, Dict, List, Optional
@@ -156,3 +157,20 @@ def get_users_info(
                 )
 
     return users_info
+
+
+def save_to_csv(
+    filename: str,
+    users_info: List[Dict[str, Any]],
+    fieldnames: List[str] = PARSER_FIELDNAMES,
+) -> None:
+    """
+    Сохраняет список словарей users_info в CSV-файл filename.
+    По умолчанию берёт заголовки из PARSER_FIELDNAMES.
+    """
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    with open(filename, mode="w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in users_info:
+            writer.writerow(row)
