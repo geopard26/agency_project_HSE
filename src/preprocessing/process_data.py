@@ -23,8 +23,9 @@ def clean_and_feature_engineer(df: pd.DataFrame) -> pd.DataFrame:
     # 2. Бинаризовать телефоны
     for col in ["mobile_phone", "home_phone"]:
         if col in df:
-            df[col] = df[col].apply(lambda x: 0 if x == 0 else 1)
-
+            df[col] = df[col].apply(
+                lambda x: 1 if pd.notna(x) and str(x).strip() and str(x) != "0" else 0
+            )
     # 3. Новый признак index_contacts
     contact_cols = [
         "country",
@@ -37,7 +38,18 @@ def clean_and_feature_engineer(df: pd.DataFrame) -> pd.DataFrame:
     ]
     existing = [c for c in contact_cols if c in df]
     if existing:
-        df["index_contacts"] = (df[existing] != 0).astype(int).mean(axis=1)
+        # функция, которая определяет, считается ли контакт «наличием»
+        def has_contact(val):
+            if pd.isna(val):
+                return 0
+            s = str(val).strip()
+            # пуcтота или "0" не считаются
+            if not s or s == "0":
+                return 0
+            return 1
+
+        # для каждой строки считаем долю полей, где has_contact=1
+        df["index_contacts"] = df[existing].applymap(has_contact).mean(axis=1)
 
     # 4. Развёртка языков langs → lang_<язык>
     if "langs" in df:
