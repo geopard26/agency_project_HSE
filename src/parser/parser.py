@@ -5,12 +5,54 @@ from typing import Any, Dict, List, Optional
 import vk_api
 
 from src.logging_config import get_logger
-from src.parser import PARSER_FIELDNAMES  # noqa: F401
-from src.parser import map_user_to_row  # noqa: F401
 
 logger = get_logger(__name__)
 
 VK_TOKEN = os.getenv("VK_TOKEN")  # не бросаем ошибку при импорте
+
+PARSER_FIELDNAMES = [
+    "id",
+    "first_name",
+    "last_name",
+    "bdate",
+    "city",
+    "country",
+    "home_town",
+    "mobile_phone",
+    "home_phone",
+    "university_name",
+    "relation",
+    "personal",
+    "connections",
+    "site",
+    "friends_count",
+    "followers_count",
+    "activities",
+    "interests",
+    "music",
+    "movies",
+    "tv",
+    "books",
+    "games",
+    "about",
+    "quotes",
+    "career",
+    "military",
+    "occupation",
+]
+
+
+def map_user_to_row(user: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Берёт словарь user из VK и возвращает новый dict
+    с ключами из PARSER_FIELDNAMES (заполняя отсутствующие пустыми строками).
+    """
+    row = {}
+    for field in PARSER_FIELDNAMES:
+        # если user[field] есть и не None — приводим к строке, иначе пустая строка
+        val = user.get(field)
+        row[field] = "" if val is None else str(val)
+    return row
 
 
 def get_users_info(
