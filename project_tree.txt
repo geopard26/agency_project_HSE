@@ -1,0 +1,128 @@
+.
+├── Dockerfile
+├── LICENSE
+├── Makefile
+├── README.md
+├── alembic.ini
+├── app
+│   └── streamlit_app.py
+├── catboost_info
+│   ├── catboost_training.json
+│   ├── learn
+│   │   └── events.out.tfevents
+│   ├── learn_error.tsv
+│   ├── time_left.tsv
+│   └── tmp
+├── data
+│   ├── app.db
+│   ├── processed
+│   │   └── data.csv
+│   └── raw
+│       └── data.csv
+├── docker-compose.dev.yml
+├── docker-compose.prod.yml
+├── docker-compose.yml
+├── docs
+│   ├── _build
+│   │   └── html
+│   ├── conf.py
+│   ├── index.rst
+│   └── modules
+│       ├── modules.rst
+│       ├── src.db.rst
+│       ├── src.models.rst
+│       ├── src.parser.rst
+│       ├── src.preprocessing.rst
+│       ├── src.rst
+│       └── src.tasks.rst
+├── evaluate.py
+├── k8s
+│   └── base
+│       ├── db.yaml
+│       ├── deployment-web.yaml
+│       ├── deployment-worker.yaml
+│       ├── kustomization.yaml
+│       └── redis.yaml
+├── migrations
+│   ├── README
+│   ├── __pycache__
+│   │   └── env.cpython-313.pyc
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions
+│       ├── 0998e108c948_create_profile_table.py
+│       └── __pycache__
+├── mlruns
+│   ├── 0
+│   │   └── meta.yaml
+│   └── 397771695447527926
+│       ├── 9d8cb74ccb6642c6a1777313c26d8077
+│       └── meta.yaml
+├── models
+│   ├── catboost_model.pkl
+│   ├── hgb_model.pkl
+│   └── random_forest.pkl
+├── nginx
+│   └── prod.conf
+├── project_tree.txt
+├── pytest.ini
+├── requirements-app.txt
+├── requirements-dev.txt
+├── requirements-docs.txt
+├── requirements.txt
+├── setup.cfg
+├── setup.cfg\
+├── src
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-313.pyc
+│   │   └── logging_config.cpython-313.pyc
+│   ├── db
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   ├── models.py
+│   │   ├── populate_csv.py
+│   │   └── session.py
+│   ├── logging_config.py
+│   ├── models
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   ├── predict.py
+│   │   └── train_catboost.py
+│   ├── parser
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   └── parser.py
+│   ├── preprocessing
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   └── process_data.py
+│   └── tasks
+│       ├── __init__.py
+│       ├── __pycache__
+│       ├── celery_app.py
+│       └── retrain_task.py
+└── tests
+    ├── __pycache__
+    │   ├── test_celery_app.cpython-313-pytest-8.3.5.pyc
+    │   ├── test_db_models.cpython-313-pytest-8.3.5.pyc
+    │   ├── test_db_postgres.cpython-313-pytest-8.3.5.pyc
+    │   ├── test_db_session.cpython-313-pytest-8.3.5.pyc
+    │   ├── test_parser.cpython-313-pytest-8.3.5.pyc
+    │   ├── test_populate_csv.cpython-313-pytest-8.3.5.pyc
+    │   ├── test_predict.cpython-313-pytest-8.3.5.pyc
+    │   └── test_process_data.cpython-313-pytest-8.3.5.pyc
+    ├── fixtures
+    │   └── vk_response.json
+    ├── test_celery_app.py
+    ├── test_db_models.py
+    ├── test_db_postgres.py
+    ├── test_db_session.py
+    ├── test_parser.py
+    ├── test_populate_csv.py
+    ├── test_predict.py
+    ├── test_process_data.py
+    ├── test_retrain_task.py
+    └── test_train_catboost.py
+
+39 directories, 87 files

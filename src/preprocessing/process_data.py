@@ -1,3 +1,4 @@
+import ast
 import os
 
 import pandas as pd
@@ -16,10 +17,52 @@ logger = get_logger(__name__)
 def clean_and_feature_engineer(df: pd.DataFrame) -> pd.DataFrame:
     # 1. Заполнить пропуски
     logger.debug("Running clean_and_feature_engineer on %d rows", len(df))
+
+    def try_parse(x):
+        if isinstance(x, str) and (x.startswith("{") or x.startswith("[")):
+            try:
+                return ast.literal_eval(x)
+            except Exception:
+                return x
+        return x
+
+    for col in ["country", "city", "home_town", "site", "relation", "langs"]:
+        if col in df.columns:
+            df[col] = df[col].apply(try_parse)
+
     for col in ["home_phone", "games", "inspired_by"]:
         if col in df:
             df[col] = df[col].fillna(0)
+    # НОВАЯ ЛОГИКА для контактов из VK API:
+    contact_cols = [
+        c for c in ["country", "city", "home_town", "site", "relation"] if c in df
+    ]
 
+    def has_contact(val):
+        # VK API: dict {"id":…, "title":…}
+        if isinstance(val, dict):
+            val = val.get("title")
+        if pd.isna(val):
+            return 0
+        s = str(val).strip()
+        return 0 if (not s or s == "0") else 1
+
+    if contact_cols:
+        df["index_contacts"] = df[contact_cols].applymap(has_contact).mean(axis=1)
+
+    # НОВАЯ ЛОГИКА для langs из VK API (список словарей):
+    if "langs" in df:
+        # langs у VK API = [{'id':…, 'title':'English'}, …]
+        def extract_langs(cell):
+            if isinstance(cell, list):
+                return [d.get("title") for d in cell if isinstance(d, dict)]
+            return []
+
+        df["langs_list"] = df["langs"].apply(extract_langs)
+        unique_langs = {lang for lst in df["langs_list"] for lang in lst}
+        for lang in unique_langs:
+            df[f"lang_{lang}"] = df["langs_list"].apply(lambda lst: int(lang in lst))
+        df.drop(columns=["langs", "langs_list"], inplace=True)
     # 2. Бинаризовать телефоны
     for col in ["mobile_phone", "home_phone"]:
         if col in df:

@@ -102,7 +102,8 @@ def get_users_info_cached(ids: list[str]) -> list[dict]:
 @st.cache_resource
 def load_model_cached():
     logger.info("Загружаем модель")
-    return load_model()
+    model, _ = load_model()
+    return model
 
 
 # ===== Предсказание =====
